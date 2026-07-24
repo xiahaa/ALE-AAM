@@ -42,7 +42,7 @@ def test_versioned_bound_api_has_no_path_loader():
 
 def test_web_assets_are_offline():
     for name in ("index.html","app.js","style.css"):
-        text = (ROOT / "silas_maptool/web" / name).read_text()
+        text = (ROOT / "silas_maptool/web" / name).read_text(encoding="utf-8")
         text = text.replace("http://www.w3.org/2000/svg", "svg-namespace")
         assert "https://" not in text and "http://" not in text
 

@@ -282,7 +282,7 @@ class Scenario:
 
     @staticmethod
     def _load_geojson(path: Path) -> list:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         feats = data.get("features") if isinstance(data, dict) else data
         if feats is None:                       # bare geometry
             feats = [data] if isinstance(data, dict) else []
@@ -298,7 +298,7 @@ class Scenario:
         """Return feature dicts (geometry + properties), handling FC/Feature/geometry."""
         if path is None:
             return []
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
         if isinstance(data, dict) and data.get("type") == "FeatureCollection":
             feats = data.get("features", [])
         elif isinstance(data, dict) and data.get("type") == "Feature":

@@ -17,35 +17,35 @@ ROOT = Path(__file__).parents[1]
 
 
 def test_coordinate_order_and_envelope():
-    task = normalize_task(json.loads((ROOT / "sample_scenario/task.json").read_text()))
+    task = normalize_task(json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8")))
     assert task["mission"]["start"] == [13.378, 52.5163]
-    broken = json.loads((ROOT / "sample_scenario/task.json").read_text())
+    broken = json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8"))
     broken["constraints"]["altitude_m_agl"]["max"] = 151
     with pytest.raises(ConfigurationError): normalize_task(broken)
 
 
 def test_route_profile_configuration_is_bounded():
-    broken = json.loads((ROOT / "sample_scenario/task.json").read_text())
+    broken = json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8"))
     broken["route_profiles"]["C"]["speed_ms"] = 100
     with pytest.raises(ConfigurationError, match="speed_ms"):
         normalize_task(broken)
 
 
 def test_missing_required_layer(tmp_path):
-    task = json.loads((ROOT / "sample_scenario/task.json").read_text())
-    (tmp_path / "task.json").write_text(json.dumps(task))
+    task = json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8"))
+    (tmp_path / "task.json").write_text(json.dumps(task), encoding="utf-8")
     with pytest.raises(FileNotFoundError): Scenario.load(tmp_path)
 
 
 def test_atomic_json_output(tmp_path):
     target = tmp_path / "nested/route.geojson"
     write_json_atomic({"longitude_first": [114.1, 22.3]}, target)
-    assert json.loads(target.read_text())["longitude_first"] == [114.1, 22.3]
+    assert json.loads(target.read_text(encoding="utf-8"))["longitude_first"] == [114.1, 22.3]
     assert not list(target.parent.glob("*.tmp"))
 
 
 def _array_scenario():
-    task = normalize_task(json.loads((ROOT / "sample_scenario/task.json").read_text()))
+    task = normalize_task(json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8")))
     grid = GridSpec(from_origin(0, 5, 1, 1), 5, 5, CRS.from_epsg(4326), 1, 0, 0, 5, 5)
     dem = np.full((5, 5), 12.0, dtype=np.float32)
     buildings = np.zeros((5, 5), dtype=np.float32)

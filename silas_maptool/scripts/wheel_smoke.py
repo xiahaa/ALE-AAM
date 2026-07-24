@@ -4,7 +4,7 @@ from urllib.request import urlopen
 
 scenario, output = map(Path, sys.argv[1:])
 for route in "abc":
-    data = json.loads((output / f"route_{route}.geojson").read_text())
+    data = json.loads((output / f"route_{route}.geojson").read_text(encoding="utf-8"))
     assert data["geometry"]["type"] == "LineString"
     assert all("altitude_m_msl" in point for point in data["properties"]["waypoints"])
 process = subprocess.Popen([sys.executable, "-m", "silas_maptool", "serve", "--scenario", str(scenario), "--port", "8765"])
