@@ -29,7 +29,7 @@ class TaskConfig(LinuxTaskConfig):
         return (
             "Hong Kong Southern Cross-sea Drone Logistics\n\nPlan and assess three low-altitude logistics routes across southern Hong Kong waters.\n\n"
             f"Read {self.input_dir}/task_prompt.md and all companion documents. "
-            f"Use the offline silas-maptool wheelhouse in {self.software_dir}. "
+            f"Use the offline ale-aam-maptool wheelhouse in {self.software_dir}. "
             f"Write exactly the six contracted artifacts to {self.remote_output_dir}. "
             "This is a simulation, not real flight authorization."
         )
@@ -58,11 +58,11 @@ async def start(task_cfg, session: cb.DesktopSession):
         if not await session.file_exists(path): raise RuntimeError(f"staged input missing: {path}")
     install = (
         f"test -d {shlex.quote(meta['software_dir']+'/wheelhouse')} && "
-        f"test -n \"$(find {shlex.quote(meta['software_dir']+'/wheelhouse')} -maxdepth 1 -name 'silas_maptool-*.whl' -print -quit)\" && "
+        f"test -n \"$(find {shlex.quote(meta['software_dir']+'/wheelhouse')} -maxdepth 1 -name 'ale_aam_maptool-*.whl' -print -quit)\" && "
         f"python3 -m venv {shlex.quote(meta['software_dir']+'/.venv')} && "
-        f"{shlex.quote(meta['software_dir']+'/.venv/bin/pip')} install --no-index --only-binary=:all: --find-links {shlex.quote(meta['software_dir']+'/wheelhouse')} silas-maptool && "
-        f"{shlex.quote(meta['tool_python'])} -m silas_maptool doctor --json && "
-        f"{shlex.quote(meta['tool_python'])} -m silas_maptool inspect --scenario {shlex.quote(meta['gis_dir'])} --json"
+        f"{shlex.quote(meta['software_dir']+'/.venv/bin/pip')} install --no-index --only-binary=:all: --find-links {shlex.quote(meta['software_dir']+'/wheelhouse')} ale-aam-maptool && "
+        f"{shlex.quote(meta['tool_python'])} -m ale_aam_maptool doctor --json && "
+        f"{shlex.quote(meta['tool_python'])} -m ale_aam_maptool inspect --scenario {shlex.quote(meta['gis_dir'])} --json"
     )
     result = await session.run_command(install, check=False, timeout=900)
     if result.get("return_code", 1) != 0: raise RuntimeError("offline tool validation failed: " + (result.get("stderr","")[-1000:]))
@@ -75,7 +75,7 @@ async def evaluate(task_cfg, session: cb.DesktopSession) -> list[float]:
     reference = f"{meta['reference_dir']}/anchors.json"
     if not await session.file_exists(reference): raise RuntimeError("evaluator-controlled reference is missing")
     evaluator_source = (Path(__file__).resolve().parents[1] / "_private" / "evaluator.py").read_text(encoding="utf-8")
-    remote_evaluator = f"/tmp/silas_v02_{TASK_NAME}_evaluator.py"
+    remote_evaluator = f"/tmp/ale_aam_v02_{TASK_NAME}_evaluator.py"
     await session.write_file(remote_evaluator, evaluator_source)
     command = " ".join(map(shlex.quote,[meta["tool_python"],remote_evaluator,"--input",meta["input_dir"],"--output",meta["remote_output_dir"],"--reference",meta["reference_dir"]]))
     try:

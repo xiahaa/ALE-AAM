@@ -115,7 +115,7 @@ def task_json(name, cfg):
     return {
         "schema_version":"2.0", "mission":{"id":name,"name":cfg["title"],"start":cfg["start"],"goal":cfg["goal"],"environment":cfg["environment"]},
         "layers":{"dem":"dem.tif","buildings":"buildings_3d.geojson","airspace":"airspace_zones.geojson","population":"population_density.tif","weather":"weather_grid.tif","emergency_sites":"emergency_sites.geojson"},
-        "aircraft":{"model":"SILAS-MR-40 simulation","cruise_speed_ms":12,"max_speed_ms":18,"cruise_power_w":650,"battery_capacity_wh":2200},
+        "aircraft":{"model":"AAM-MR-40 simulation","cruise_speed_ms":12,"max_speed_ms":18,"cruise_power_w":650,"battery_capacity_wh":2200},
         "constraints":{"altitude_m_agl":{"min":50,"max":150},"speed_ms":{"min":5,"max":18},"vertical_clearance_m":15,"horizontal_clearance_m":25,"default_building_height_m":25,"noise_sensitive_pop_percentile":80},
         "route_profiles":{
             "A":{"objective":"shortest_direct","strategy":"direct","cruise_agl_m":145,"speed_ms":14,"clearance_multiplier":1,"avoid_population":False},
@@ -155,7 +155,7 @@ Every waypoint has both `altitude_m_agl` and `altitude_m_msl`.
 - All routes must avoid RFZ polygons, respect building height plus 15 m vertical
   clearance, remain in the 50–150 m AGL and 5–18 m/s envelopes, fit battery
   capacity, start/end exactly at task.json coordinates, and differ materially.
-- `silas-maptool validate` checks public schema and explicit constraints only; it
+- `ale-aam-maptool validate` checks public schema and explicit constraints only; it
   is not a reference-answer or grading command.
 """
     rubric = """# Risk worksheet
@@ -181,7 +181,7 @@ at least three sites whose coordinates and `site_id` match
 
 The staged `software/wheelhouse/` contains wheels. `start()` installs them into
 `software/.venv` with `--no-index --only-binary=:all:`. Use
-`software/.venv/bin/silas-maptool doctor --json`, `inspect`, `plan-all`, `grid`,
+`software/.venv/bin/ale-aam-maptool doctor --json`, `inspect`, `plan-all`, `grid`,
 and `validate`. Do not use network access, sudo, apt, Homebrew, MSVC, or a source
 compiler. The web demo is `serve --scenario input/gis --host 127.0.0.1`.
 """

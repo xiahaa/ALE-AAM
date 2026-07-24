@@ -1,4 +1,4 @@
-"""silas_maptool — low-altitude route-planning tool for the UC Berkeley ALE challenge.
+"""ale_aam_maptool — low-altitude route-planning tool for the UC Berkeley ALE challenge.
 
 It wraps the repo's jps3d JPS grid planner behind a CLI, a FastAPI HTTP API, and a
 small web UI. ALE GeoJSON layers (buildings / no-fly zones) + a DEM are rasterized
@@ -6,7 +6,7 @@ to an occupancy grid; JPS finds a shortest feasible path; the result is emitted 
 an ALE-contract GeoJSON route (route_a/b/c/final) with metrics.
 
 Quick start (Python):
-    from silas_maptool import Scenario, plan_route
+    from ale_aam_maptool import Scenario, plan_route
     sc = Scenario.load("sample_scenario")
     feat = plan_route(sc, start=(114.05, 22.53), goal=(114.07, 22.54), strategy="direct")
 """

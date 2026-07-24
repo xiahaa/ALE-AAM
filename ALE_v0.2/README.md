@@ -7,7 +7,7 @@ not modified.
 
 For the complete Chinese installation, task-execution, six-artifact, HTTP/Web,
 release-staging, and ALE integration guide, see
-[`../silas_maptool/USAGE.zh.md`](../silas_maptool/USAGE.zh.md).
+[`../ale_aam_maptool/USAGE.zh.md`](../ale_aam_maptool/USAGE.zh.md).
 
 The missions are benchmark simulations only. Their 150 m AGL envelope represents
 a hypothetical advanced-operations permission and is not a statement of general

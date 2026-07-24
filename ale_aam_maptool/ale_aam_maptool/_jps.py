@@ -15,18 +15,18 @@ def load_jps():
     if _LOADED is not None:
         return _LOADED
     errors = []
-    for name in ("silas_maptool.jps_planner_bindings", "jps_planner_bindings"):
+    for name in ("ale_aam_maptool.jps_planner_bindings", "jps_planner_bindings"):
         try:
             _LOADED = importlib.import_module(name)
             return _LOADED
         except ImportError as exc:
             errors.append(str(exc))
-    override = os.environ.get("SILAS_JPS_LIB")
+    override = os.environ.get("ALE_AAM_JPS_LIB")
     directories = [Path(override).resolve()] if override else []
     try:
         # A source checkout can shadow an installed wheel during tests. Locate
         # the wheel's extension explicitly without relying on cwd/sys.path.
-        directories.append(Path(importlib.metadata.distribution("silas-maptool").locate_file("silas_maptool")).resolve())
+        directories.append(Path(importlib.metadata.distribution("ale-aam-maptool").locate_file("ale_aam_maptool")).resolve())
     except importlib.metadata.PackageNotFoundError:
         pass
     for directory in dict.fromkeys(directories):

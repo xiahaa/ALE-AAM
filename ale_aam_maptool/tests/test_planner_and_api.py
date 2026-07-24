@@ -5,11 +5,11 @@ import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner
 
-from silas_maptool.cli import app as cli_app
-from silas_maptool.errors import NoFeasiblePathError
-from silas_maptool.planner import plan_all_routes, plan_route
-from silas_maptool.scenario import Scenario
-from silas_maptool.server import app, bind_scenario
+from ale_aam_maptool.cli import app as cli_app
+from ale_aam_maptool.errors import NoFeasiblePathError
+from ale_aam_maptool.planner import plan_all_routes, plan_route
+from ale_aam_maptool.scenario import Scenario
+from ale_aam_maptool.server import app, bind_scenario
 
 ROOT = Path(__file__).parents[1]
 
@@ -25,7 +25,7 @@ def test_plan_all_schema_and_determinism(tmp_path):
 
 def test_no_path_has_structured_error(monkeypatch):
     scenario = Scenario.load(ROOT / "sample_scenario")
-    monkeypatch.setattr("silas_maptool.planner._native_plan", lambda *args: ([], 0.0, "blocked"))
+    monkeypatch.setattr("ale_aam_maptool.planner._native_plan", lambda *args: ([], 0.0, "blocked"))
     with pytest.raises(NoFeasiblePathError): plan_route(scenario, "A")
 
 
@@ -42,7 +42,7 @@ def test_versioned_bound_api_has_no_path_loader():
 
 def test_web_assets_are_offline():
     for name in ("index.html","app.js","style.css"):
-        text = (ROOT / "silas_maptool/web" / name).read_text(encoding="utf-8")
+        text = (ROOT / "ale_aam_maptool/web" / name).read_text(encoding="utf-8")
         text = text.replace("http://www.w3.org/2000/svg", "svg-namespace")
         assert "https://" not in text and "http://" not in text
 

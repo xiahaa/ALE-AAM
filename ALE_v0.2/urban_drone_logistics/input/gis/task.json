@@ -4,7 +4,7 @@
     "cruise_power_w": 650,
     "cruise_speed_ms": 12,
     "max_speed_ms": 18,
-    "model": "SILAS-MR-40 simulation"
+    "model": "AAM-MR-40 simulation"
   },
   "constraints": {
     "altitude_m_agl": {

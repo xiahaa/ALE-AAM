@@ -10,12 +10,12 @@ $LinkDirs = @($LinkDirs | Where-Object { Test-Path -LiteralPath $_ } | Select-Ob
 if (-not $LinkDirs) { throw 'No wheelhouse/ or dist/ directory found. Download a release wheel; users do not need MSVC.' }
 $PickDir = Join-Path $Root '.venv\wheel-select'
 New-Item -ItemType Directory -Force -Path $PickDir | Out-Null
-Get-ChildItem -LiteralPath $PickDir -Filter 'silas_maptool-*.whl' -ErrorAction SilentlyContinue | Remove-Item -Force
+Get-ChildItem -LiteralPath $PickDir -Filter 'ale_aam_maptool-*.whl' -ErrorAction SilentlyContinue | Remove-Item -Force
 $FindArgs = @()
 foreach ($Dir in $LinkDirs) { $FindArgs += @('--find-links', $Dir) }
-& $Py -m pip download --no-deps --no-index @FindArgs --dest $PickDir silas-maptool
-$Wheels = @(Get-ChildItem -LiteralPath $PickDir -Filter 'silas_maptool-*.whl')
-if ($Wheels.Count -ne 1) { throw "Expected one compatible silas-maptool wheel, found $($Wheels.Count)." }
+& $Py -m pip download --no-deps --no-index @FindArgs --dest $PickDir ale-aam-maptool
+$Wheels = @(Get-ChildItem -LiteralPath $PickDir -Filter 'ale_aam_maptool-*.whl')
+if ($Wheels.Count -ne 1) { throw "Expected one compatible ale-aam-maptool wheel, found $($Wheels.Count)." }
 $Wheel = $Wheels[0]
 $Original = Get-ChildItem -Path $Wheelhouse,$Dist -Filter $Wheel.Name -File -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
 if ($Original -and $Original.FullName.StartsWith($Wheelhouse, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -23,4 +23,4 @@ if ($Original -and $Original.FullName.StartsWith($Wheelhouse, [System.StringComp
 } else {
   & $Py -m pip install $Wheel.FullName
 }
-& $Py -m silas_maptool doctor --json
+& $Py -m ale_aam_maptool doctor --json

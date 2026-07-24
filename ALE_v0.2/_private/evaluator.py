@@ -12,7 +12,7 @@ from pyproj import Geod, Transformer
 from shapely.geometry import LineString, shape
 from shapely.ops import unary_union
 
-from silas_maptool.scenario import Scenario
+from ale_aam_maptool.scenario import Scenario
 
 GEOD = Geod(ellps="WGS84")
 FILES = ("route_a.geojson","route_b.geojson","route_c.geojson","route_final.geojson","risk_assessment.csv","emergency_response_plan.md")

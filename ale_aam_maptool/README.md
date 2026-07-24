@@ -1,4 +1,4 @@
-# silas-maptool 0.2.0
+# ale-aam-maptool 0.2.0
 
 Deterministic, offline low-altitude route planning for the ALE benchmark.
 Platform-specific release wheels support CPython 3.10–3.13 on Windows x64,
@@ -19,7 +19,7 @@ guide: [USAGE.zh.md](USAGE.zh.md).
 - Ubuntu/macOS: place the wheelhouse beside the script, then run `sh install.sh`.
 
 The wheel workflow uploads one combined artifact named
-`silas-maptool-0.2.0-macos-wheels`. It contains CPython 3.10-3.13 wheels for
+`ale-aam-maptool-0.2.0-macos-wheels`. It contains CPython 3.10-3.13 wheels for
 both Intel (`x86_64`) and Apple Silicon (`arm64`). Download the artifact, put
 the matching wheel under `dist/macos-arm64/` or `dist/macos-x86_64/`, and run
 `sh install.sh`. A maintainer who needs to bootstrap the first artifacts on a

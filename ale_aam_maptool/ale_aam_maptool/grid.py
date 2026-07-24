@@ -1,6 +1,6 @@
 """Low-level grid helpers: projection + rasterization primitives.
 
-These are pure-ish utilities used by :mod:`silas_maptool.scenario`. The heavy
+These are pure-ish utilities used by :mod:`ale_aam_maptool.scenario`. The heavy
 ``rasterio``/``pyproj`` work lives there; this module keeps the small, reusable
 pieces (UTM selection, dilation) dependency-light.
 """

@@ -1,8 +1,8 @@
-name: silas-maptool cross-platform wheels
+name: ALE-AAM maptool cross-platform wheels
 on:
   workflow_dispatch:
   pull_request:
-    paths: ["silas_maptool/**", ".github/workflows/silas-maptool-wheels.yml"]
+    paths: ["ale_aam_maptool/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
 jobs:
   wheels:
     runs-on: ${{ matrix.os }}
@@ -14,7 +14,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: pypa/cibuildwheel@v4.1.0
         with:
-          package-dir: silas_maptool
+          package-dir: ale_aam_maptool
           output-dir: wheelhouse
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
@@ -24,11 +24,11 @@ jobs:
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}
           CIBW_TEST_REQUIRES: "pytest httpx jsonschema"
           CIBW_TEST_COMMAND: >-
-            python -m silas_maptool doctor --json &&
-            silas-maptool inspect --scenario {project}/silas_maptool/sample_scenario --json &&
-            silas-maptool plan-all --scenario {project}/silas_maptool/sample_scenario --outdir {project}/wheel-test-output &&
-            python {project}/silas_maptool/scripts/wheel_smoke.py {project}/silas_maptool/sample_scenario {project}/wheel-test-output &&
-            python -m pytest {project}/silas_maptool/tests
+            python -m ale_aam_maptool doctor --json &&
+            ale-aam-maptool inspect --scenario {project}/ale_aam_maptool/sample_scenario --json &&
+            ale-aam-maptool plan-all --scenario {project}/ale_aam_maptool/sample_scenario --outdir {project}/wheel-test-output &&
+            python {project}/ale_aam_maptool/scripts/wheel_smoke.py {project}/ale_aam_maptool/sample_scenario {project}/wheel-test-output &&
+            python -m pytest {project}/ale_aam_maptool/tests
       - uses: actions/upload-artifact@v4
         with:
           name: "wheels-${{ matrix.os }}"
@@ -48,7 +48,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          wheels = sorted(Path("macos-wheels").glob("silas_maptool-0.2.0-*.whl"))
+          wheels = sorted(Path("macos-wheels").glob("ale_aam_maptool-0.2.0-*.whl"))
           names = [wheel.name for wheel in wheels]
           missing = []
           for version in ("310", "311", "312", "313"):
@@ -66,7 +66,7 @@ jobs:
           print("\n".join(names))
       - uses: actions/upload-artifact@v4
         with:
-          name: silas-maptool-0.2.0-macos-wheels
+          name: ale-aam-maptool-0.2.0-macos-wheels
           path: macos-wheels/*.whl
           if-no-files-found: error
           retention-days: 30
@@ -82,7 +82,7 @@ jobs:
       - name: Assemble Linux CPython 3.12 offline wheelhouse
         run: >-
           python -m pip download --only-binary=:all:
-          --dest wheelhouse dist/silas_maptool-*cp312*.whl
-      - run: python silas_maptool/scripts/offline_install_smoke.py silas_maptool/sample_scenario
+          --dest wheelhouse dist/ale_aam_maptool-*cp312*.whl
+      - run: python ale_aam_maptool/scripts/offline_install_smoke.py ale_aam_maptool/sample_scenario
       - uses: actions/upload-artifact@v4
-        with: {name: ale-ubuntu-py312-wheelhouse, path: wheelhouse}
+        with: {name: ale-aam-ubuntu-py312-wheelhouse, path: wheelhouse}

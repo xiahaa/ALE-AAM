@@ -1,6 +1,6 @@
-# silas-ale-agent
+# ALE-AAM
 
-Standalone repository for the SILAS low-altitude logistics agent benchmark.
+Standalone repository for the ALE-AAM low-altitude logistics agent benchmark.
 It contains the public cross-platform planning tool and the ALE v0.2 task
 packages, without the surrounding jps3d repository.
 
@@ -10,9 +10,9 @@ It is not a real-flight authorization, dispatch, or aviation-safety system.
 ## Repository layout
 
 ```text
-silas-ale-agent/
-├── silas_maptool/                 Cross-platform public planning tool
-│   ├── silas_maptool/             Python package and offline Web UI
+ALE-AAM/
+├── ale_aam_maptool/                 Cross-platform public planning tool
+│   ├── ale_aam_maptool/             Python package and offline Web UI
 │   ├── vendor/jps3d/              Vendored BSD-3-Clause JPS backend
 │   ├── sample_scenario/           Small deterministic smoke scenario
 │   ├── tests/
@@ -27,7 +27,7 @@ silas-ale-agent/
 │   ├── scripts/
 │   └── tests/
 └── .github/workflows/
-    └── silas-maptool-wheels.yml   Windows/Linux/macOS wheel matrix
+    └── ale-aam-maptool-wheels.yml   Windows/Linux/macOS wheel matrix
 ```
 
 `ALE_v0.1` is historical material and is intentionally not copied into this
@@ -35,7 +35,7 @@ standalone repository.
 
 ## Build artifacts
 
-The `silas-maptool cross-platform wheels` GitHub Actions workflow builds and
+The `ale-aam-maptool cross-platform wheels` GitHub Actions workflow builds and
 tests CPython 3.10-3.13 wheels for:
 
 - Windows x64
@@ -44,7 +44,7 @@ tests CPython 3.10-3.13 wheels for:
 - macOS Apple Silicon arm64
 
 The combined Mac artifact is named
-`silas-maptool-0.2.0-macos-wheels`. Release wheels and wheelhouses are GitHub
+`ale-aam-maptool-0.2.0-macos-wheels`. Release wheels and wheelhouses are GitHub
 Actions artifacts and are not committed to Git.
 
 ## Local use
@@ -52,7 +52,7 @@ Actions artifacts and are not committed to Git.
 Windows:
 
 ```powershell
-cd silas_maptool
+cd ale_aam_maptool
 powershell -ExecutionPolicy Bypass -File .\install.ps1
 .\run.cmd doctor --json
 .\run.cmd plan-all --scenario .\sample_scenario --outdir .\output
@@ -61,13 +61,13 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 Ubuntu/macOS:
 
 ```bash
-cd silas_maptool
+cd ale_aam_maptool
 sh install.sh
 sh run.sh doctor --json
 sh run.sh plan-all --scenario ./sample_scenario --outdir ./output
 ```
 
-See [`silas_maptool/USAGE.zh.md`](silas_maptool/USAGE.zh.md) for platform wheel
+See [`ale_aam_maptool/USAGE.zh.md`](ale_aam_maptool/USAGE.zh.md) for platform wheel
 selection, CLI/API usage, six ALE artifacts, task release staging, and
 troubleshooting.
 
@@ -76,7 +76,7 @@ troubleshooting.
 Tool tests:
 
 ```bash
-cd silas_maptool
+cd ale_aam_maptool
 python -m pip install .[test]
 python -m pytest tests
 ```
@@ -97,9 +97,9 @@ agent has finished, before `evaluate()` runs.
 
 ## Licensing and data provenance
 
-- Tool license: [`silas_maptool/LICENSE`](silas_maptool/LICENSE)
-- jps3d license: [`silas_maptool/vendor/jps3d/LICENSE`](silas_maptool/vendor/jps3d/LICENSE)
-- Third-party notices: [`silas_maptool/THIRD_PARTY_NOTICES.md`](silas_maptool/THIRD_PARTY_NOTICES.md)
+- Tool license: [`ale_aam_maptool/LICENSE`](ale_aam_maptool/LICENSE)
+- jps3d license: [`ale_aam_maptool/vendor/jps3d/LICENSE`](ale_aam_maptool/vendor/jps3d/LICENSE)
+- Third-party notices: [`ale_aam_maptool/THIRD_PARTY_NOTICES.md`](ale_aam_maptool/THIRD_PARTY_NOTICES.md)
 - Scenario sources and hashes: each task's `input/source_manifest.json`
 
 The eSUA/RFZ fixed official snapshot remains a publication blocker until its

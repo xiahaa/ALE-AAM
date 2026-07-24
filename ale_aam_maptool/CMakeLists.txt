@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(silas_maptool_native LANGUAGES CXX)
+project(ale_aam_maptool_native LANGUAGES CXX)
 
 find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)
@@ -18,4 +18,4 @@ if(MSVC)
 else()
   target_compile_options(jps_planner_bindings PRIVATE -O3 -fvisibility=hidden)
 endif()
-install(TARGETS jps_planner_bindings LIBRARY DESTINATION silas_maptool RUNTIME DESTINATION silas_maptool)
+install(TARGETS jps_planner_bindings LIBRARY DESTINATION ale_aam_maptool RUNTIME DESTINATION ale_aam_maptool)

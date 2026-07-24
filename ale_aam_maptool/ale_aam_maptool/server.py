@@ -14,7 +14,7 @@ from .scenario import Scenario
 from .validator import validate_feature
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
-app = FastAPI(title="silas-maptool", version=__version__)
+app = FastAPI(title="ale-aam-maptool", version=__version__)
 _scenario: Scenario | None = None
 
 

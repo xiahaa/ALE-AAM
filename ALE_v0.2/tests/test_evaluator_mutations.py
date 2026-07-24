@@ -8,8 +8,8 @@ import pytest
 from shapely.geometry import shape
 from shapely.ops import unary_union
 
-from silas_maptool.planner import plan_all_routes
-from silas_maptool.scenario import Scenario
+from ale_aam_maptool.planner import plan_all_routes
+from ale_aam_maptool.scenario import Scenario
 
 ROOT = Path(__file__).parents[1]
 SPEC = importlib.util.spec_from_file_location("v02_evaluator", ROOT / "_private/evaluator.py")

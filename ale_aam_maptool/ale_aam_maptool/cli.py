@@ -12,7 +12,7 @@ from . import __version__
 from .errors import ConfigurationError, MaptoolError, NativeBackendError
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Offline low-altitude planning toolkit.")
-log = logging.getLogger("silas_maptool")
+log = logging.getLogger("ale_aam_maptool")
 
 
 def _emit(value):

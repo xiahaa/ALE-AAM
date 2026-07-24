@@ -42,9 +42,9 @@ def stage(output: Path, wheelhouse: Path) -> Path:
     if output.exists():
         raise FileExistsError(f"release target already exists: {output}")
     wheels = sorted(wheelhouse.glob("*.whl"))
-    native = [p for p in wheels if p.name.startswith("silas_maptool-0.2.0-cp312-") and "linux" in p.name]
+    native = [p for p in wheels if p.name.startswith("ale_aam_maptool-0.2.0-cp312-") and "linux" in p.name]
     if len(native) != 1:
-        raise RuntimeError("wheelhouse must contain exactly one Linux CPython 3.12 silas-maptool 0.2.0 wheel")
+        raise RuntimeError("wheelhouse must contain exactly one Linux CPython 3.12 ale-aam-maptool 0.2.0 wheel")
 
     tasks_root = output / "tasks" / DOMAIN
     data_root = output / "task_data" / DOMAIN
@@ -87,7 +87,7 @@ def stage(output: Path, wheelhouse: Path) -> Path:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=ROOT / "dist" / "ale-v0.2")
-    parser.add_argument("--wheelhouse", type=Path, default=ROOT.parent / "silas_maptool" / "wheelhouse")
+    parser.add_argument("--wheelhouse", type=Path, default=ROOT.parent / "ale_aam_maptool" / "wheelhouse")
     args = parser.parse_args()
     print(stage(args.out.resolve(), args.wheelhouse.resolve()))
 

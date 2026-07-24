@@ -1,18 +1,18 @@
-# silas-maptool 0.2.0 与 ALE v0.2 详细使用手册
+# ale-aam-maptool 0.2.0 与 ALE v0.2 详细使用手册
 
 本文面向三类读者：
 
-1. 在 Windows、Ubuntu 或 macOS 上安装和试用 `silas-maptool` 的使用者。
+1. 在 Windows、Ubuntu 或 macOS 上安装和试用 `ale-aam-maptool` 的使用者。
 2. 编写三条候选路线和六份 ALE 交付物的任务执行者。
 3. 构建 wheel、整理任务包并在 ALE 中执行评测的维护者。
 
-本文所有命令均从 `silas_maptool` 或 `ALE_v0.2` 的目录根部执行。示例路径均为相对路径，不依赖某台机器上的绝对目录。
+本文所有命令均从 `ale_aam_maptool` 或 `ALE_v0.2` 的目录根部执行。示例路径均为相对路径，不依赖某台机器上的绝对目录。
 
 > 安全边界：本工具只用于基准测试、模拟规划、人工验收和演示，不是飞行授权、真实调度或实时航空安全系统。ALE 场景中的 150 m AGL 上限代表模拟的高级运营许可，不代表香港的一般法规限制。
 
 ## 1. 功能与版本
 
-`silas-maptool 0.2.0` 提供以下功能：
+`ale-aam-maptool 0.2.0` 提供以下功能：
 
 - 读取 DEM、三维建筑物、限制空域、人口、天气和应急点 GIS 图层。
 - 使用原生 JPS 后端生成 A、B、C 三种低空路线。
@@ -38,7 +38,7 @@
 发布给普通用户的最小目录如下：
 
 ```text
-silas_maptool/
+ale_aam_maptool/
 ├── install.ps1             # Windows 安装脚本
 ├── install.sh              # Ubuntu/macOS 安装脚本
 ├── run.cmd                 # Windows 命令入口
@@ -53,8 +53,8 @@ silas_maptool/
 开发仓库还包括：
 
 ```text
-silas_maptool/
-├── silas_maptool/          # Python 包、HTTP 服务和离线 Web 资源
+ale_aam_maptool/
+├── ale_aam_maptool/          # Python 包、HTTP 服务和离线 Web 资源
 ├── vendor/jps3d/           # BSD-3-Clause 原生 JPS 源码
 ├── tests/                  # 单元和接口测试
 ├── scripts/                # wheel 安装/运行 smoke
@@ -103,16 +103,16 @@ wheel 文件名中的 `cp310`、`cp311`、`cp312`、`cp313` 分别对应 Python 
 
 有两种发布形式：
 
-- 完全离线包：把 `silas_maptool` 和所有依赖 wheel 放在 `wheelhouse/`。安装脚本使用 `--no-index`，不会访问 PyPI。
-- 普通发布包：把与当前平台匹配的 `silas_maptool` wheel 放在 `dist/` 或 `dist/` 的一级子目录。安装器可从 PyPI 获取声明的 Python 依赖。
+- 完全离线包：把 `ale_aam_maptool` 和所有依赖 wheel 放在 `wheelhouse/`。安装脚本使用 `--no-index`，不会访问 PyPI。
+- 普通发布包：把与当前平台匹配的 `ale_aam_maptool` wheel 放在 `dist/` 或 `dist/` 的一级子目录。安装器可从 PyPI 获取声明的 Python 依赖。
 
-正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `silas_maptool 0.2.0` wheel 及所有依赖。
+正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.2.0` wheel 及所有依赖。
 
 ## 4. 三平台安装
 
 ### 4.1 Windows x64
 
-在 PowerShell 中进入 `silas_maptool` 目录：
+在 PowerShell 中进入 `ale_aam_maptool` 目录：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\install.ps1
@@ -133,7 +133,7 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 
 ### 4.2 Ubuntu x64
 
-进入 `silas_maptool` 目录：
+进入 `ale_aam_maptool` 目录：
 
 ```bash
 PYTHON_BIN=python3.12 sh install.sh
@@ -164,8 +164,8 @@ sh run.sh doctor --json
 
 Intel Python、Rosetta x86_64 Python 和 arm64 Python 不能混用 wheel。遇到 `incompatible architecture` 时，应更换 Python 或 wheel，不要尝试在用户机器上编译原生扩展。
 
-正式 wheel 由 GitHub Actions 的 `silas-maptool cross-platform wheels`
-工作流生成。下载名为 `silas-maptool-0.2.0-macos-wheels` 的 artifact，解压后根据
+正式 wheel 由 GitHub Actions 的 `ale-aam-maptool cross-platform wheels`
+工作流生成。下载名为 `ale-aam-maptool-0.2.0-macos-wheels` 的 artifact，解压后根据
 Python 和架构选择一个 wheel：
 
 ```text
@@ -182,7 +182,7 @@ Python 3.13 + Apple Silicon cp313-...-arm64.whl
 将匹配的 wheel 放到对应目录，例如：
 
 ```text
-dist/macos-arm64/silas_maptool-0.2.0-cp312-...-arm64.whl
+dist/macos-arm64/ale_aam_maptool-0.2.0-cp312-...-arm64.whl
 ```
 
 然后运行：
@@ -561,15 +561,15 @@ output/
 在 ALE Ubuntu 环境中，`start()` 已经把工具安装到 `software/.venv`。任务执行者使用：
 
 ```bash
-software/.venv/bin/silas-maptool doctor --json
-software/.venv/bin/silas-maptool inspect --scenario input/gis --json
-software/.venv/bin/silas-maptool plan-all --scenario input/gis --outdir output
+software/.venv/bin/ale-aam-maptool doctor --json
+software/.venv/bin/ale-aam-maptool inspect --scenario input/gis --json
+software/.venv/bin/ale-aam-maptool plan-all --scenario input/gis --outdir output
 ```
 
 如果平台只提供 Python 模块入口，也可以：
 
 ```bash
-software/.venv/bin/python -m silas_maptool plan-all \
+software/.venv/bin/python -m ale_aam_maptool plan-all \
   --scenario input/gis \
   --outdir output
 ```
@@ -669,7 +669,7 @@ cp output/route_b.geojson output/route_final.geojson
 ### 10.5 第五步：公开校验
 
 ```bash
-software/.venv/bin/silas-maptool validate \
+software/.venv/bin/ale-aam-maptool validate \
   --scenario input/gis \
   --output output
 ```
@@ -812,7 +812,7 @@ python -m pytest tests
 先把 Linux CPython 3.12 的完整离线 wheelhouse 放到：
 
 ```text
-silas_maptool/wheelhouse/
+ale_aam_maptool/wheelhouse/
 ```
 
 然后在 `ALE_v0.2` 目录执行：
@@ -851,7 +851,7 @@ python scripts/stage_release.py --out dist/ale-v0.2-build2
 
 1. 将发布包的 `tasks/transport_safety/` 合并到 ALE 的 `tasks/transport_safety/`。
 2. 将发布包的 `task_data/transport_safety/` 放到环境配置所指向的 task-data 根目录。
-3. 新建任务清单，例如 `selected_tasks/silas_v02.txt`：
+3. 新建任务清单，例如 `selected_tasks/ale_aam_v02.txt`：
 
 ```text
 transport_safety/urban_drone_logistics
@@ -862,11 +862,11 @@ transport_safety/emergency_blood_transport
 4. 建立实验 YAML，例如：
 
 ```yaml
-name: silas_v02
+name: ale_aam_v02
 agents:
   - configs/agents/dummy.yaml
 environment: configs/environments/docker.yaml
-tasks: selected_tasks/silas_v02.txt
+tasks: selected_tasks/ale_aam_v02.txt
 output:
   root: .logs/ale
 concurrency: 1
@@ -881,19 +881,19 @@ cleanup_mode: delete
 先只做发现和配置检查：
 
 ```bash
-uv run python -m ale_run run silas_v02.yaml --dry-run
+uv run python -m ale_run run ale_aam_v02.yaml --dry-run
 ```
 
 确认任务发现、wheelhouse、task-data 来源、输出目录和 agent 配置无误后再执行：
 
 ```bash
-uv run python -m ale_run run silas_v02.yaml
+uv run python -m ale_run run ale_aam_v02.yaml
 ```
 
 日志默认位于：
 
 ```text
-.logs/ale/silas_v02/
+.logs/ale/ale_aam_v02/
 ```
 
 正式运行时，ALE 数据提供器必须先只 stage `input/` 和 `software/`，agent 结束后再 stage `reference/`。不要手工把完整 `base/` 直接挂载为 agent 可读目录。

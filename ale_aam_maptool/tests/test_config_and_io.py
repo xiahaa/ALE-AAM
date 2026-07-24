@@ -6,11 +6,11 @@ import pytest
 from rasterio.crs import CRS
 from rasterio.transform import from_origin
 
-from silas_maptool.config import normalize_task
-from silas_maptool.errors import ConfigurationError
-from silas_maptool.geojson_out import write_json_atomic
-from silas_maptool.metrics import build_waypoints
-from silas_maptool.scenario import GridSpec, Scenario
+from ale_aam_maptool.config import normalize_task
+from ale_aam_maptool.errors import ConfigurationError
+from ale_aam_maptool.geojson_out import write_json_atomic
+from ale_aam_maptool.metrics import build_waypoints
+from ale_aam_maptool.scenario import GridSpec, Scenario
 
 
 ROOT = Path(__file__).parents[1]
