@@ -1,0 +1,13 @@
+{
+  "category": "transport_safety",
+  "summary": "Plan and assess three low-altitude logistics routes across southern Hong Kong waters.",
+  "taskId": "transport_safety/cross_sea_drone_logistics",
+  "title": "Hong Kong Southern Cross-sea Drone Logistics",
+  "vm": {
+    "disk_gb": 200,
+    "memory_gb": 32,
+    "snapshot": "cpu-free-ubuntu",
+    "timeout_s": 14400,
+    "vcpus": 8
+  }
+}

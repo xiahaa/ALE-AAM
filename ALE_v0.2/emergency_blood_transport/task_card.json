@@ -1,0 +1,13 @@
+{
+  "category": "transport_safety",
+  "summary": "Plan time-critical blood transport routes on Hong Kong Island with cold-chain contingencies.",
+  "taskId": "transport_safety/emergency_blood_transport",
+  "title": "Hong Kong Island Emergency Blood Transport",
+  "vm": {
+    "disk_gb": 200,
+    "memory_gb": 32,
+    "snapshot": "cpu-free-ubuntu",
+    "timeout_s": 14400,
+    "vcpus": 8
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          [
+            [
+              114.06502121,
+              22.22498935
+            ],
+            [
+              114.09471882,
+              22.22498935
+            ],
+            [
+              114.09471882,
+              22.24318702
+            ],
+            [
+              114.06502121,
+              22.24318702
+            ],
+            [
+              114.06502121,
+              22.22498935
+            ]
+          ]
+        ],
+        "type": "Polygon"
+      },
+      "properties": {
+        "benchmark_fixture": true,
+        "max_altitude_m_msl": null,
+        "name": "NFZ_central",
+        "snapshot_date": "2026-07-01",
+        "zone_type": "restricted"
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

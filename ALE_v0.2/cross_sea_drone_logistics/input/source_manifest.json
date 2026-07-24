@@ -1,0 +1,110 @@
+{
+  "acquisition_date_utc": "2026-07-24",
+  "actual_derivation": "LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ remains a non-operational fixture pending a fixed licensed CAD export",
+  "authoritative_sources": [
+    {
+      "name": "LandsD 5 m DTM",
+      "status": "authoritative snapshot crop distributed as gis/dem.tif",
+      "url": "https://data.gov.hk/en-data/dataset/hk-landsd-openmap-5m-grid-dtm"
+    },
+    {
+      "name": "LandsD building data with height",
+      "status": "authoritative API snapshot distributed as gis/buildings_3d.geojson",
+      "url": "https://data.gov.hk/en-data/dataset/hk-landsd-openmap-landsd-building"
+    },
+    {
+      "name": "CAD eSUA RFZ map",
+      "status": "fixed-date export required before benchmark publication",
+      "url": "https://esua.cad.gov.hk/web/droneMap"
+    },
+    {
+      "name": "HKO latest ten-minute wind",
+      "status": "observed snapshot distributed through gis/weather_grid.tif",
+      "url": "https://data.gov.hk/en-data/dataset/hk-hko-rss-latest-ten-minute-wind-info"
+    },
+    {
+      "name": "2021 Population Census",
+      "status": "authoritative STPU snapshot distributed through gis/population_density.tif",
+      "url": "https://data.gov.hk/en-data/dataset/hk-censtatd-census_geo-2021-population-census-by-dcd"
+    }
+  ],
+  "conversion_steps": [
+    "crop the LandsD 5 m DTM in EPSG:2326 without row reversal",
+    "query LandsD buildings and derive height_m as TopHeight minus BaseHeight",
+    "rasterize 2021 Census STPU persons per square kilometre onto the DTM grid",
+    "write the observed HKO station-mean wind speed onto the DTM grid without invented station coordinates",
+    "record raw snapshots and SHA-256 for every distributed GIS file"
+  ],
+  "crs": "EPSG:4326 for vectors; EPSG:2326 for authoritative rasters; the tool reprojects with always_xy=True to the mission's local UTM zone",
+  "files": [
+    {
+      "path": "airspace_zones.geojson",
+      "sha256": "fcb566bb952e673a562dbfc4e976c4222131563dee228b6ecbaf383484f53ead"
+    },
+    {
+      "path": "buildings_3d.geojson",
+      "sha256": "ce5f4ea5bff84a782744dbf5f0fbb34a10e4b52f81ce789c48494ab9e2f12638"
+    },
+    {
+      "path": "dem.tif",
+      "sha256": "c72944ca860ec462029e88ad4e2e956e7348271cf84520a95bdb7280e3d63d6b"
+    },
+    {
+      "path": "emergency_sites.geojson",
+      "sha256": "8eede766a3142f1ac114a63ac83a166f44d50bb3d48f077723ba78e1a4444f3d"
+    },
+    {
+      "path": "population_density.tif",
+      "sha256": "ac9c2420e783f2375cdd749f21c3d8c8cb00a8314205b5ca13d32a84fd2bd8c6"
+    },
+    {
+      "path": "task.json",
+      "sha256": "447122d33f1a6c5ef7d34051c1e6e1877328023f3e427e9f31e7d28962c60702"
+    },
+    {
+      "path": "weather_grid.tif",
+      "sha256": "d4918fceedc66976e2b24a15d2ce402afa93963113f05814aa1598daa2576d88"
+    }
+  ],
+  "generated_by": "scripts/build_tasks.py + scripts/refresh_official_sources.py",
+  "layer_provenance": {
+    "airspace_zones.geojson": {
+      "status": "benchmark fixture; MUST be replaced by a fixed-date CAD eSUA RFZ export before publication"
+    },
+    "buildings_3d.geojson": {
+      "crs": "EPSG:4326",
+      "license": "DATA.GOV.HK terms",
+      "raw_sha256": "ce5f4ea5bff84a782744dbf5f0fbb34a10e4b52f81ce789c48494ab9e2f12638",
+      "source": "https://portal.csdi.gov.hk/server/rest/services/common/landsd_rcd_1637211194312_35158/FeatureServer/0/query",
+      "status": "authoritative API snapshot"
+    },
+    "dem.tif": {
+      "crs": "EPSG:2326",
+      "license": "DATA.GOV.HK terms",
+      "source": "https://www.landsd.gov.hk/landsd_psi_data/SMO/data/Whole_HK_DTM_5m.zip",
+      "source_sha256": "785718f462ae6de3c9e1fed2bf9fe5affe1c1d739c0a969fd62cf3680b4b33ab",
+      "status": "authoritative snapshot crop"
+    },
+    "population_density.tif": {
+      "crs": "EPSG:2326",
+      "license": "DATA.GOV.HK terms",
+      "raw_sha256": "c129b6e7b50487eb1b5b13a6e6de25d9876d9d20c9c9589eb709be1bb686676d",
+      "source": "https://portal.csdi.gov.hk/server/rest/services/common/censtatd_rcd_1635933193720_58660/FeatureServer/0/query",
+      "status": "2021 Census STPU population per square kilometre"
+    },
+    "weather_grid.tif": {
+      "crs": "EPSG:2326",
+      "details": {
+        "mean_wind_ms": 1.9345,
+        "snapshot_time": "202607241140",
+        "station_count": 28
+      },
+      "license": "HKO open data terms",
+      "raw_sha256": "a6847ba03425f750ae30ca11d34f43aecc2e7a50eb26550ce2329749b53bac29",
+      "source": "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv",
+      "status": "observed snapshot; mean station wind raster"
+    }
+  },
+  "operational_use": false,
+  "schema_version": "1.0"
+}

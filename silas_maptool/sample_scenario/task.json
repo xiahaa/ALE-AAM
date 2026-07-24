@@ -1,0 +1,12 @@
+{
+  "schema_version":"2.0",
+  "mission":{"id":"sample-berlin","name":"Offline sample","start":[13.378,52.5163],"goal":[13.3885,52.5218],"environment":"urban"},
+  "layers":{"dem":"dem.tif","buildings":"buildings_3d.geojson","airspace":"airspace_zones.geojson","population":"population_density.tif","weather":null,"emergency_sites":null},
+  "aircraft":{"model":"benchmark-multirotor","cruise_speed_ms":12,"max_speed_ms":18,"cruise_power_w":300,"battery_capacity_wh":1600},
+  "constraints":{"altitude_m_agl":{"min":50,"max":150},"speed_ms":{"min":5,"max":18},"vertical_clearance_m":10,"horizontal_clearance_m":20,"default_building_height_m":25,"noise_sensitive_pop_percentile":80},
+  "route_profiles":{
+    "A":{"objective":"shortest_direct","strategy":"direct","cruise_agl_m":145,"speed_ms":12,"clearance_multiplier":1,"avoid_population":false},
+    "B":{"objective":"conservative_safety","strategy":"conservative","cruise_agl_m":100,"speed_ms":10,"clearance_multiplier":2,"avoid_population":false},
+    "C":{"objective":"low_noise","strategy":"mission_optimized","cruise_agl_m":120,"speed_ms":11,"clearance_multiplier":1.25,"avoid_population":true}
+  }
+}

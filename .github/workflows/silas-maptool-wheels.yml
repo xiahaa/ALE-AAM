@@ -1,0 +1,85 @@
+name: silas-maptool cross-platform wheels
+on:
+  workflow_dispatch:
+  pull_request:
+    paths: ["silas_maptool/**", ".github/workflows/silas-maptool-wheels.yml"]
+jobs:
+  wheels:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, windows-2022, macos-15-intel, macos-14]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pypa/cibuildwheel@v4.1.0
+        with:
+          package-dir: silas_maptool
+          output-dir: wheelhouse
+        env:
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_SKIP: "*-musllinux* *-win32 *-manylinux_i686 *-macosx_i386"
+          CIBW_ARCHS_LINUX: x86_64
+          CIBW_ARCHS_WINDOWS: AMD64
+          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}
+          CIBW_TEST_REQUIRES: "pytest httpx jsonschema"
+          CIBW_TEST_COMMAND: >-
+            python -m silas_maptool doctor --json &&
+            silas-maptool inspect --scenario {project}/sample_scenario --json &&
+            silas-maptool plan-all --scenario {project}/sample_scenario --outdir {project}/wheel-test-output &&
+            python {project}/scripts/wheel_smoke.py {project}/sample_scenario {project}/wheel-test-output &&
+            python -m pytest {project}/tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: "wheels-${{ matrix.os }}"
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+          retention-days: 30
+  macos-wheel-bundle:
+    needs: wheels
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: "wheels-macos-*"
+          merge-multiple: true
+          path: macos-wheels
+      - name: Verify macOS release matrix
+        shell: python
+        run: |
+          from pathlib import Path
+          wheels = sorted(Path("macos-wheels").glob("silas_maptool-0.2.0-*.whl"))
+          names = [wheel.name for wheel in wheels]
+          missing = []
+          for version in ("310", "311", "312", "313"):
+              for arch in ("x86_64", "arm64"):
+                  if not any(
+                      f"-cp{version}-cp{version}-" in name
+                      and name.endswith(f"_{arch}.whl")
+                      for name in names
+                  ):
+                      missing.append(f"cp{version}-macosx_{arch}")
+          if missing or len(wheels) != 8:
+              raise SystemExit(
+                  f"expected eight macOS wheels; missing={missing}; found={names}"
+              )
+          print("\n".join(names))
+      - uses: actions/upload-artifact@v4
+        with:
+          name: silas-maptool-0.2.0-macos-wheels
+          path: macos-wheels/*.whl
+          if-no-files-found: error
+          retention-days: 30
+  offline-wheelhouse:
+    needs: wheels
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/download-artifact@v4
+        with: {pattern: "wheels-ubuntu-22.04", merge-multiple: true, path: dist}
+      - run: python -m pip download --only-binary=:all: --dest wheelhouse dist/silas_maptool-*cp312*.whl
+      - run: python silas_maptool/scripts/offline_install_smoke.py silas_maptool/sample_scenario
+      - uses: actions/upload-artifact@v4
+        with: {name: ale-ubuntu-py312-wheelhouse, path: wheelhouse}

@@ -1,0 +1,13 @@
+{
+  "category": "transport_safety",
+  "summary": "Plan and assess three low-altitude logistics routes across a dense Kowloon urban corridor.",
+  "taskId": "transport_safety/urban_drone_logistics",
+  "title": "Hong Kong Kowloon Urban Drone Logistics",
+  "vm": {
+    "disk_gb": 200,
+    "memory_gb": 32,
+    "snapshot": "cpu-free-ubuntu",
+    "timeout_s": 14400,
+    "vcpus": 8
+  }
+}

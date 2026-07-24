@@ -1,0 +1,38 @@
+{
+  "expert_metric_ranges": {
+    "battery_fraction": [
+      0.0,
+      0.9
+    ],
+    "straight_line_factor": [
+      1.0,
+      2.5
+    ]
+  },
+  "required_emergency_terms": [
+    "open space",
+    "dense urban",
+    "pedestrian cordon"
+  ],
+  "risk_weights": {
+    "collision": 0.3,
+    "energy": 0.15,
+    "noise": 0.1,
+    "population": 0.2,
+    "terrain": 0.1,
+    "weather": 0.15
+  },
+  "route_geometry_reference": null,
+  "schema_version": "2.0",
+  "tolerances": {
+    "arithmetic": 0.01,
+    "endpoint_m": 3,
+    "risk_raw": 0.15
+  },
+  "verified_emergency_sites": [
+    "URB-1",
+    "URB-2",
+    "URB-3",
+    "URB-4"
+  ]
+}

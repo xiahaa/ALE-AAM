@@ -1,0 +1,10 @@
+.venv/
+build/
+dist/
+wheelhouse/
+*.egg-info/
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.dylib

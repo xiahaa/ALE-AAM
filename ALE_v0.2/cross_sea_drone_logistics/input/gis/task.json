@@ -1,0 +1,72 @@
+{
+  "aircraft": {
+    "battery_capacity_wh": 2200,
+    "cruise_power_w": 650,
+    "cruise_speed_ms": 12,
+    "max_speed_ms": 18,
+    "model": "SILAS-MR-40 simulation"
+  },
+  "constraints": {
+    "altitude_m_agl": {
+      "max": 150,
+      "min": 50
+    },
+    "default_building_height_m": 25,
+    "horizontal_clearance_m": 25,
+    "noise_sensitive_pop_percentile": 80,
+    "speed_ms": {
+      "max": 18,
+      "min": 5
+    },
+    "vertical_clearance_m": 15
+  },
+  "layers": {
+    "airspace": "airspace_zones.geojson",
+    "buildings": "buildings_3d.geojson",
+    "dem": "dem.tif",
+    "emergency_sites": "emergency_sites.geojson",
+    "population": "population_density.tif",
+    "weather": "weather_grid.tif"
+  },
+  "mission": {
+    "environment": "southern_cross_sea",
+    "goal": [
+      114.0312329722111,
+      22.208092486108427
+    ],
+    "id": "cross_sea_drone_logistics",
+    "name": "Hong Kong Southern Cross-sea Drone Logistics",
+    "start": [
+      114.12953776982366,
+      22.260497414234752
+    ]
+  },
+  "route_profiles": {
+    "A": {
+      "avoid_population": false,
+      "clearance_multiplier": 1,
+      "cruise_agl_m": 145,
+      "objective": "shortest_direct",
+      "speed_ms": 14,
+      "strategy": "direct"
+    },
+    "B": {
+      "avoid_population": false,
+      "clearance_multiplier": 2,
+      "cruise_agl_m": 110,
+      "objective": "conservative_safety",
+      "speed_ms": 10,
+      "strategy": "conservative"
+    },
+    "C": {
+      "avoid_population": false,
+      "clearance_multiplier": 1.25,
+      "cruise_agl_m": 125,
+      "objective": "wind_energy_optimized",
+      "population_percentile": 99,
+      "speed_ms": 13.0,
+      "strategy": "mission_optimized"
+    }
+  },
+  "schema_version": "2.0"
+}

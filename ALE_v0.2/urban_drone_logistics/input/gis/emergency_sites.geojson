@@ -1,0 +1,65 @@
+{
+  "features": [
+    {
+      "geometry": {
+        "coordinates": [
+          114.11475,
+          22.3315
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "site_id": "URB-1",
+        "site_type": "open_space",
+        "verified_for_benchmark": true
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          114.1285,
+          22.3381
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "site_id": "URB-2",
+        "site_type": "helipad",
+        "verified_for_benchmark": true
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          114.1406,
+          22.33304
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "site_id": "URB-3",
+        "site_type": "sports_ground",
+        "verified_for_benchmark": true
+      },
+      "type": "Feature"
+    },
+    {
+      "geometry": {
+        "coordinates": [
+          114.1461,
+          22.3414
+        ],
+        "type": "Point"
+      },
+      "properties": {
+        "site_id": "URB-4",
+        "site_type": "marine_or_rooftop",
+        "verified_for_benchmark": true
+      },
+      "type": "Feature"
+    }
+  ],
+  "type": "FeatureCollection"
+}

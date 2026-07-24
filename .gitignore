@@ -1,0 +1,35 @@
+# Python environments and caches
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+**/.pytest_cache/
+*.py[cod]
+*.egg-info/
+
+# Native and packaging outputs
+build/
+**/build/
+dist/
+**/dist/
+wheelhouse/
+**/wheelhouse/
+*.whl
+*.so
+*.pyd
+*.dylib
+
+# Test and runtime outputs
+output/
+**/output/
+wheel-test-output/
+**/wheel-test-output/
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

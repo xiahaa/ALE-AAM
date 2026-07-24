@@ -1,0 +1,46 @@
+{
+  "schema_version": "2.0",
+  "coordinate_order": [
+    "longitude",
+    "latitude"
+  ],
+  "required_files": [
+    "route_a.geojson",
+    "route_b.geojson",
+    "route_c.geojson",
+    "route_final.geojson",
+    "risk_assessment.csv",
+    "emergency_response_plan.md"
+  ],
+  "route": {
+    "type": "GeoJSON Feature/LineString",
+    "minimum_coordinates": 5,
+    "waypoint_fields": [
+      "index",
+      "altitude_m_agl",
+      "altitude_m_msl",
+      "speed_ms",
+      "heading_deg"
+    ]
+  },
+  "risk_csv": {
+    "rows_excluding_header": 21,
+    "columns": [
+      "route",
+      "dimension",
+      "raw_score",
+      "weight",
+      "weighted_score",
+      "total_score",
+      "selected"
+    ],
+    "dimensions": [
+      "collision",
+      "terrain",
+      "population",
+      "weather",
+      "noise",
+      "energy"
+    ]
+  }
+}

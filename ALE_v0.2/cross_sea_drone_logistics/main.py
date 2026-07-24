@@ -1,0 +1,92 @@
+from __future__ import annotations
+
+import json
+import logging
+import shlex
+from dataclasses import dataclass
+from pathlib import Path
+
+import cua_bench as cb
+from tasks.linux_runtime import LinuxTaskConfig
+
+logger = logging.getLogger(__name__)
+DOMAIN_NAME = "transport_safety"
+TASK_NAME = "cross_sea_drone_logistics"
+VARIANT_NAME = "base"
+
+
+@dataclass
+class TaskConfig(LinuxTaskConfig):
+    DOMAIN_NAME: str = DOMAIN_NAME
+    TASK_NAME: str = TASK_NAME
+    VARIANT_NAME: str = VARIANT_NAME
+
+    @property
+    def tool_python(self): return f"{self.software_dir}/.venv/bin/python"
+
+    @property
+    def task_description(self):
+        return (
+            "Hong Kong Southern Cross-sea Drone Logistics\n\nPlan and assess three low-altitude logistics routes across southern Hong Kong waters.\n\n"
+            f"Read {self.input_dir}/task_prompt.md and all companion documents. "
+            f"Use the offline silas-maptool wheelhouse in {self.software_dir}. "
+            f"Write exactly the six contracted artifacts to {self.remote_output_dir}. "
+            "This is a simulation, not real flight authorization."
+        )
+
+    def to_metadata(self):
+        metadata = super().to_metadata()
+        metadata.update({"tool_python": self.tool_python, "gis_dir": f"{self.input_dir}/gis"})
+        return metadata
+
+
+@cb.tasks_config(split="train")
+def load():
+    cfg = TaskConfig()
+    return [cb.Task(description=cfg.task_description, metadata=cfg.to_metadata(),
+                    computer={"provider":"computer","setup_config":{"os_type":cfg.OS_TYPE}})]
+
+
+@cb.setup_task(split="train")
+async def start(task_cfg, session: cb.DesktopSession):
+    meta = task_cfg.metadata
+    clean = f"mkdir -p {shlex.quote(meta['remote_output_dir'])} {shlex.quote(meta['reference_dir'])} && find {shlex.quote(meta['remote_output_dir'])} -mindepth 1 -maxdepth 1 -exec rm -rf -- {{}} + && find {shlex.quote(meta['reference_dir'])} -mindepth 1 -maxdepth 1 -exec rm -rf -- {{}} +"
+    await session.run_command(clean, check=True)
+    required = ["task_prompt.md","output_contract.json","routing_guidelines.md","risk_assessment_rubric.md","emergency_planning_manual.md","source_manifest.json","gis/task.json"]
+    for relative in required:
+        path = f"{meta['input_dir']}/{relative}"
+        if not await session.file_exists(path): raise RuntimeError(f"staged input missing: {path}")
+    install = (
+        f"test -d {shlex.quote(meta['software_dir']+'/wheelhouse')} && "
+        f"test -n \"$(find {shlex.quote(meta['software_dir']+'/wheelhouse')} -maxdepth 1 -name 'silas_maptool-*.whl' -print -quit)\" && "
+        f"python3 -m venv {shlex.quote(meta['software_dir']+'/.venv')} && "
+        f"{shlex.quote(meta['software_dir']+'/.venv/bin/pip')} install --no-index --only-binary=:all: --find-links {shlex.quote(meta['software_dir']+'/wheelhouse')} silas-maptool && "
+        f"{shlex.quote(meta['tool_python'])} -m silas_maptool doctor --json && "
+        f"{shlex.quote(meta['tool_python'])} -m silas_maptool inspect --scenario {shlex.quote(meta['gis_dir'])} --json"
+    )
+    result = await session.run_command(install, check=False, timeout=900)
+    if result.get("return_code", 1) != 0: raise RuntimeError("offline tool validation failed: " + (result.get("stderr","")[-1000:]))
+    if await session.file_exists(f"{meta['reference_dir']}/anchors.json"): raise RuntimeError("reference leak: anchors visible before agent run")
+
+
+@cb.evaluate_task(split="train")
+async def evaluate(task_cfg, session: cb.DesktopSession) -> list[float]:
+    meta = task_cfg.metadata
+    reference = f"{meta['reference_dir']}/anchors.json"
+    if not await session.file_exists(reference): raise RuntimeError("evaluator-controlled reference is missing")
+    evaluator_source = (Path(__file__).resolve().parents[1] / "_private" / "evaluator.py").read_text(encoding="utf-8")
+    remote_evaluator = f"/tmp/silas_v02_{TASK_NAME}_evaluator.py"
+    await session.write_file(remote_evaluator, evaluator_source)
+    command = " ".join(map(shlex.quote,[meta["tool_python"],remote_evaluator,"--input",meta["input_dir"],"--output",meta["remote_output_dir"],"--reference",meta["reference_dir"]]))
+    try:
+        result = await session.run_command(command, check=False, timeout=900)
+        if result.get("return_code",1) != 0: return [0.0]
+        lines = [line for line in result.get("stdout","").splitlines() if line.strip()]
+        report = json.loads(lines[-1]) if lines else {"score":0.0}
+        logger.info("%s evaluation: %s", TASK_NAME, json.dumps(report))
+        return [max(0.0,min(1.0,float(report.get("score",0.0))))]
+    except Exception as exc:
+        logger.info("agent output could not be evaluated: %s", exc)
+        return [0.0]
+    finally:
+        await session.run_command(f"rm -f {shlex.quote(remote_evaluator)}", check=False)
