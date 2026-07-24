@@ -1,6 +1,9 @@
 name: ALE-AAM maptool cross-platform wheels
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["ale_aam_maptool/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
   pull_request:
     paths: ["ale_aam_maptool/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
 jobs:
