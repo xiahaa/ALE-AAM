@@ -12,7 +12,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; display: grid; grid-template-columns: 350px 1fr; height: 100vh; overflow: hidden; }
-button, input { font: inherit; }
+button, input, select { font: inherit; }
 button { color: inherit; }
 .workspace-panel { overflow-y: auto; padding: 22px; background: var(--panel); border-right: 1px solid var(--line); }
 header { padding-bottom: 12px; }
@@ -25,6 +25,9 @@ h2 span { display: inline-grid; place-items: center; width: 24px; height: 24px; 
 .hint { margin: 0 0 12px; font-size: 12px; line-height: 1.55; }
 .file-input, button { border: 1px solid #3a5877; border-radius: 7px; background: var(--surface); padding: 8px 12px; cursor: pointer; }
 .file-input { display: block; width: 100%; color: var(--muted); font-size: 12px; }
+.basemap-field { display: grid; gap: 5px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
+.basemap-field select { width: 100%; padding: 8px; border: 1px solid #3a5877; border-radius: 7px; background: var(--surface); color: inherit; }
+.basemap-field select:disabled { opacity: .55; }
 .file-input::file-selector-button { margin-right: 9px; border: 0; border-radius: 5px; background: #244665; color: #fff; padding: 6px 8px; cursor: pointer; }
 .file-input:hover, button:hover { border-color: var(--accent); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -59,6 +62,8 @@ main { position: relative; min-width: 0; background: #020817; overflow: hidden; 
 .map-toolbar { position: absolute; z-index: 3; top: 16px; right: 16px; display: grid; gap: 6px; }
 .map-toolbar button { width: 38px; height: 38px; padding: 0; background: #0d1b2ddd; font-size: 22px; }
 .map-help { position: absolute; z-index: 3; left: 16px; bottom: 14px; padding: 7px 10px; border-radius: 5px; background: #07111fdd; color: var(--muted); font-size: 11px; pointer-events: none; }
+.map-attribution { position: absolute; z-index: 3; right: 16px; bottom: 14px; padding: 5px 8px; border-radius: 4px; background: #07111fdd; color: #cbd5e1; font-size: 10px; pointer-events: none; }
+.basemap-tile { pointer-events: none; }
 .scenario-layer { pointer-events: none; }
 .local-feature { fill: rgba(239,68,68,.2); stroke: #fb7185; stroke-width: 1.2; vector-effect: non-scaling-stroke; cursor: help; }
 .local-feature.line { fill: none; stroke: #fbbf24; }

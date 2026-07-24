@@ -11,6 +11,12 @@ const state = {
   localLayers: [],
   pointer: null,
   draggingWaypoint: null,
+  basemaps: [],
+  basemap: 'offline',
+  basemapGeneration: 0,
+  basemapTimer: null,
+  layerControls: new Map(),
+  demWasVisible: true,
 };
 
 async function request(url, options) {
@@ -57,6 +63,7 @@ function clientToWorld(event) {
 
 function applyView() {
   $('map').setAttribute('viewBox', `${state.view.x} ${state.view.y} ${state.view.width} ${state.view.height}`);
+  scheduleBasemapRender();
 }
 
 function resetView() {
@@ -78,6 +85,149 @@ function zoom(factor, anchor) {
     height: nextHeight,
   };
   applyView();
+}
+
+function clamp(value, minimum, maximum) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function lonToTileX(longitude, zoomLevel) {
+  return (longitude + 180) / 360 * (2 ** zoomLevel);
+}
+
+function latToTileY(latitude, zoomLevel) {
+  const radians = clamp(latitude, -85.05112878, 85.05112878) * Math.PI / 180;
+  return (1 - Math.asinh(Math.tan(radians)) / Math.PI) / 2 * (2 ** zoomLevel);
+}
+
+function tileXToLon(x, zoomLevel) {
+  return x / (2 ** zoomLevel) * 360 - 180;
+}
+
+function tileYToLat(y, zoomLevel) {
+  return Math.atan(Math.sinh(Math.PI * (1 - 2 * y / (2 ** zoomLevel)))) * 180 / Math.PI;
+}
+
+function scheduleBasemapRender() {
+  if (!state.scenario) return;
+  clearTimeout(state.basemapTimer);
+  state.basemapTimer = setTimeout(renderBasemapTiles, 60);
+}
+
+function visibleLonLatBounds() {
+  const topLeft = toLonLat({x: state.view.x, y: state.view.y});
+  const bottomRight = toLonLat({x: state.view.x + state.view.width, y: state.view.y + state.view.height});
+  return {
+    west: clamp(Math.min(topLeft[0], bottomRight[0]), -180, 180),
+    south: clamp(Math.min(topLeft[1], bottomRight[1]), -85.05112878, 85.05112878),
+    east: clamp(Math.max(topLeft[0], bottomRight[0]), -180, 180),
+    north: clamp(Math.max(topLeft[1], bottomRight[1]), -85.05112878, 85.05112878),
+  };
+}
+
+function tileRange(bounds, zoomLevel) {
+  const limit = 2 ** zoomLevel;
+  return {
+    xMin: clamp(Math.floor(lonToTileX(bounds.west, zoomLevel)), 0, limit - 1),
+    xMax: clamp(Math.floor(lonToTileX(bounds.east, zoomLevel)), 0, limit - 1),
+    yMin: clamp(Math.floor(latToTileY(bounds.north, zoomLevel)), 0, limit - 1),
+    yMax: clamp(Math.floor(latToTileY(bounds.south, zoomLevel)), 0, limit - 1),
+  };
+}
+
+function renderBasemapTiles() {
+  const group = $('basemap-tiles');
+  group.textContent = '';
+  const definition = state.basemaps.find(item => item.id === state.basemap);
+  if (!state.scenario || state.basemap === 'offline' || !definition?.available) return;
+
+  const bounds = visibleLonLatBounds();
+  const widthPixels = Math.max(320, $('map').clientWidth || 1000);
+  const longitudeSpan = Math.max(0.000001, bounds.east - bounds.west);
+  let zoomLevel = clamp(Math.floor(Math.log2(360 * widthPixels / (longitudeSpan * 256))), 2, definition.max_zoom);
+  let range = tileRange(bounds, zoomLevel);
+  while ((range.xMax - range.xMin + 1) * (range.yMax - range.yMin + 1) > 80 && zoomLevel > 2) {
+    zoomLevel -= 1;
+    range = tileRange(bounds, zoomLevel);
+  }
+
+  const generation = ++state.basemapGeneration;
+  let failures = 0;
+  for (let x = range.xMin; x <= range.xMax; x += 1) {
+    for (let y = range.yMin; y <= range.yMax; y += 1) {
+      const northWest = toWorld([tileXToLon(x, zoomLevel), tileYToLat(y, zoomLevel)]);
+      const southEast = toWorld([tileXToLon(x + 1, zoomLevel), tileYToLat(y + 1, zoomLevel)]);
+      const image = svgElement('image', {
+        class: 'basemap-tile',
+        href: `/v1/basemaps/${encodeURIComponent(state.basemap)}/${zoomLevel}/${x}/${y}.png`,
+        x: northWest.x,
+        y: northWest.y,
+        width: southEast.x - northWest.x,
+        height: southEast.y - northWest.y,
+        preserveAspectRatio: 'none',
+      });
+      image.addEventListener('error', () => {
+        if (generation !== state.basemapGeneration) return;
+        failures += 1;
+        if (failures === 4) {
+          setBasemap('offline', true);
+          setStatus('在线底图暂时不可用，已自动回退到离线场景图层。', true);
+        }
+      });
+      group.appendChild(image);
+    }
+  }
+}
+
+function updateDemForBasemap() {
+  const control = state.layerControls.get('dem');
+  if (!control) return;
+  const online = state.basemap !== 'offline';
+  if (online) {
+    if (!control.input.disabled) state.demWasVisible = control.input.checked;
+    control.input.checked = false;
+    control.input.disabled = true;
+    control.image?.setAttribute('visibility', 'hidden');
+  } else {
+    control.input.disabled = false;
+    control.input.checked = state.demWasVisible;
+    control.image?.setAttribute('visibility', state.demWasVisible ? 'visible' : 'hidden');
+  }
+}
+
+function setBasemap(providerId, quiet = false) {
+  const definition = state.basemaps.find(item => item.id === providerId && item.available)
+    || state.basemaps.find(item => item.id === 'offline');
+  if (!definition) return;
+  state.basemap = definition.id;
+  $('basemap').value = definition.id;
+  $('basemap-attribution').textContent = definition.attribution;
+  updateDemForBasemap();
+  renderBasemapTiles();
+  if (!quiet) setStatus(`已切换到底图：${definition.name}。`);
+}
+
+async function loadBasemaps() {
+  const select = $('basemap');
+  try {
+    const data = await request('/v1/basemaps');
+    state.basemaps = data.providers;
+    select.textContent = '';
+    for (const provider of data.providers) {
+      const option = document.createElement('option');
+      option.value = provider.id;
+      option.textContent = provider.available ? provider.name : `${provider.name}（未配置）`;
+      option.disabled = !provider.available;
+      select.appendChild(option);
+    }
+    select.disabled = data.providers.filter(provider => provider.available).length < 2;
+    setBasemap(data.default, true);
+  } catch (_) {
+    state.basemaps = [{id: 'offline', name: '离线场景图层', online: false, available: true,
+      attribution: 'ALE-AAM 场景数据', max_zoom: 19}];
+    select.disabled = true;
+    setBasemap('offline', true);
+  }
 }
 
 function setMode(mode) {
@@ -102,12 +252,14 @@ function addLayerToggle(layer, checked, onChange) {
   kind.textContent = layer.kind === 'raster' ? '栅格' : '矢量';
   row.append(input, name, kind);
   $('layers').appendChild(row);
+  return {row, input};
 }
 
 function renderScenarioLayers() {
   const group = $('scenario-layers');
   group.textContent = '';
   $('layers').textContent = '';
+  state.layerControls.clear();
   const initiallyVisible = new Set(['dem', 'buildings', 'airspace', 'emergency_sites']);
   for (const layer of state.scenario.layers) {
     const visible = layer.available && initiallyVisible.has(layer.id);
@@ -123,9 +275,10 @@ function renderScenarioLayers() {
       });
       group.appendChild(image);
     }
-    addLayerToggle(layer, visible, checked => {
+    const control = addLayerToggle(layer, visible, checked => {
       if (image) image.setAttribute('visibility', checked ? 'visible' : 'hidden');
     });
+    state.layerControls.set(layer.id, {...control, image});
   }
 }
 
@@ -417,6 +570,7 @@ function exportRoute() {
 }
 
 function bindEvents() {
+  $('basemap').addEventListener('change', event => setBasemap(event.target.value));
   $('mode-inspect').addEventListener('click', () => setMode('inspect'));
   $('mode-draw').addEventListener('click', () => setMode('draw'));
   $('mode-pan').addEventListener('click', () => setMode('pan'));
@@ -501,6 +655,7 @@ async function initialize() {
     state.fullView = {x: 0, y: 0, width: state.world.width, height: state.world.height};
     resetView();
     renderScenarioLayers();
+    await loadBasemaps();
     $('longitude').value = state.scenario.mission.start[0].toFixed(6);
     $('latitude').value = state.scenario.mission.start[1].toFixed(6);
     resetRoute();

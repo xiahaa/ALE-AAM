@@ -18,7 +18,7 @@
 - 使用原生 JPS 后端生成 A、B、C 三种低空路线。
 - 导出带 AGL、MSL 高度及速度等属性的 GeoJSON。
 - 检查场景、预览规划栅格、校验公开输出格式和显式硬约束。
-- 提供稳定 CLI、版本化 HTTP API 和完全离线的 Web 界面。
+- 提供稳定 CLI、版本化 HTTP API 和离线优先的 Web 界面；本地开发/演示可选天地图或 Mapbox 底图。
 - Web 界面按“加载数据 → 查看环境 → 交互式画航线 → 导出 GeoJSON”工作，支持直接读取本地 GeoJSON 和包含未压缩 GeoJSON 的 ZIP。
 - 使用平台 wheel 安装，普通用户不需要 C++ 编译器、MSVC、Homebrew、apt、sudo。
 
@@ -55,7 +55,49 @@ Windows 使用：
 3. **绘制航线**：页面先放入任务起点和终点。切换到“画航点”，点击地图添加中间航点；拖动圆点调整位置，在航点列表中设置 AGL 高度和速度，或删除航点。
 4. **导出**：点击“导出 GeoJSON”，得到 `ale-aam-route.geojson`。几何类型为 `Feature/LineString`，坐标固定为 `[longitude, latitude]`，每个航点包含高度、速度，并在 DEM 有值时包含 `altitude_m_msl`。
 
-Web 地图使用场景自身的数据渲染，不依赖 OSM、在线瓦片或 CDN，因此大陆网络、内网和断网环境下都能显示。仓库 `data/hong_kong_airspace_20260724.zip` 可直接作为本地空域叠加层加载。
+Web 地图默认使用场景自身的数据渲染，不依赖 OSM、在线瓦片或 CDN，因此大陆网络、内网和断网环境下仍能显示。开发或演示时可按下一节启用天地图或 Mapbox；任何在线服务不可用时会自动回退到离线图层。仓库 `data/hong_kong_airspace_20260724.zip` 可直接作为本地空域叠加层加载。
+
+### 1.2 可选在线底图与密钥保密
+
+在线底图只用于本地开发、人工验收和演示。正式 ALE 任务保持离线，不配置任何在线底图密钥。
+
+在 `ale_aam_maptool` 目录中复制示例配置：
+
+Windows PowerShell：
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Ubuntu/macOS：
+
+```bash
+cp .env.example .env
+chmod 600 .env
+```
+
+编辑本机 `.env`，不要把真实值发到聊天、Issue、日志或 Git：
+
+```dotenv
+ALE_AAM_BASEMAP=tianditu-vector
+ALE_AAM_TIANDITU_TOKEN=<本机天地图密钥>
+ALE_AAM_MAPBOX_TOKEN=<本机 Mapbox access token>
+ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
+```
+
+`ALE_AAM_BASEMAP` 可取：
+
+| 值 | 含义 |
+|---|---|
+| `offline` | 离线场景图层，正式 ALE 和断网环境使用 |
+| `tianditu-vector` | 天地图矢量底图与注记 |
+| `tianditu-imagery` | 天地图影像底图与注记 |
+| `mapbox-streets` | Mapbox 街道样式；可用 `ALE_AAM_MAPBOX_STYLE` 换成有权限的样式 |
+| `mapbox-satellite` | Mapbox 卫星影像 |
+
+重新启动 `serve` 后，页面“底图”列表只允许选择已经配置的服务。服务器使用固定白名单地址代理瓦片，浏览器只看到同源的 `/v1/basemaps/...` 地址，不会得到密钥；元数据接口、错误信息和日志也不返回密钥。`.gitignore` 已忽略 `.env`、`.env.local` 和 `*.secret.env`，仓库只提交空值的 `.env.example`。
+
+这仍不等于供应商密钥可以不受约束地共享。请在天地图/Mapbox 管理后台限制允许来源、URL 或使用范围，按团队制度轮换和撤销；给同事分发真实 `.env` 时使用组织认可的密码管理器或加密通道。
 
 ## 2. 目录说明
 
@@ -731,7 +773,7 @@ Web 界面可以：
 
 Web 导出的 FeatureCollection 主要用于查看和演示，不等同于 ALE 要求的六份独立交付物。正式任务仍应使用 CLI 生成 `route_a.geojson`、`route_b.geojson`、`route_c.geojson`。
 
-页面资源、字体、样式、脚本和背景栅格均来自本地，不使用 CDN、在线地图瓦片或追踪服务。服务只能访问启动时绑定的场景，不接受网页传入任意服务器目录。
+页面资源、字体、样式和脚本均来自本地，不使用 CDN 或追踪服务。默认背景栅格来自绑定场景；启用天地图/Mapbox 时，只有后端瓦片代理访问供应商，浏览器不会接收供应商密钥。服务只能访问启动时绑定的场景，不接受网页传入任意服务器目录。在线底图失败时页面自动回退到离线场景图层。
 
 ## 12. HTTP API
 
@@ -742,6 +784,8 @@ Web 导出的 FeatureCollection 主要用于查看和演示，不等同于 ALE �
 | GET | `/v1/health` | 无 | 服务版本及场景绑定状态 |
 | GET | `/v1/scenario` | 无 | 场景、范围、栅格、策略摘要 |
 | GET | `/v1/preview?route=A` | 查询参数 A/B/C | PNG 规划栅格 |
+| GET | `/v1/basemaps` | 无 | 可用底图、默认值、显示名称和署名；不含密钥 |
+| GET | `/v1/basemaps/{provider}/{z}/{x}/{y}.png` | 白名单 provider 与有效瓦片坐标 | 同源代理瓦片；不可用时返回通用错误 |
 | POST | `/v1/plan` | `{"route":"A","densify_interval_m":200}` | 单条 Feature 与指标 |
 | POST | `/v1/plan-all` | 无请求体 | A/B/C Feature 与指标 |
 | POST | `/v1/validate` | `{"feature":{...},"expected_route":"A"}` | 单个 Feature 的公开校验报告 |
@@ -981,9 +1025,9 @@ python3 -c 'import platform; print(platform.machine())'
 
 结果为 `arm64` 时使用 arm64 wheel，结果为 `x86_64` 时使用 x86_64 wheel。推荐保持 Python、终端和 wheel 都为原生 arm64。
 
-### 14.6 Web 页面没有在线底图
+### 14.6 Web 页面没有在线底图或自动回退到离线
 
-这是正常行为。Web UI 被设计为完全离线，只显示本地栅格和路线，不请求在线瓦片。
+先确认 `.env` 位于运行命令的 `ale_aam_maptool` 目录，键名与 1.2 节一致，并在修改后重启服务。然后访问 `/v1/basemaps`：对应服务应显示 `available: true`，但响应中不应出现任何密钥。若服务可选但随后自动回退，通常是供应商侧来源限制、额度、网络/DNS 或样式权限问题；查看服务端通用错误状态即可，不要打印上游完整 URL。断网或正式 ALE 环境应主动选择 `offline`。
 
 ### 14.7 端口 8000 已占用
 

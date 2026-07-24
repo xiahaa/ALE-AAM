@@ -68,11 +68,14 @@ sh run.sh doctor --json
 sh run.sh plan-all --scenario ./sample_scenario --outdir ./output
 ```
 
-The offline Web interface now follows one primary workflow: load scenario/local
+The offline-first Web interface follows one primary workflow: load scenario/local
 data, inspect environment layers, draw or edit waypoints, and export one GeoJSON
 `LineString`. Start it with `serve`, open the printed local URL, and optionally
 load [`data/hong_kong_airspace_20260724.zip`](data/hong_kong_airspace_20260724.zip)
-directly in the browser. No OSM tiles, CDN, or external network request is used.
+directly in the browser. Scenario layers work without OSM, a CDN, or any external
+request. Local development and demonstrations may optionally enable TianDiTu or
+Mapbox through the credential-hiding server proxy described in the usage guide;
+formal ALE task execution remains offline.
 
 See [`ale_aam_maptool/USAGE.zh.md`](ale_aam_maptool/USAGE.zh.md) for platform wheel
 selection, CLI/API usage, six ALE artifacts, task release staging, and

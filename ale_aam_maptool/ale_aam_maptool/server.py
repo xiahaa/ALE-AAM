@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from . import __version__
+from .basemaps import BasemapUnavailable, catalog as basemap_catalog, provider as basemap_provider, tile as basemap_tile
 from .planner import plan_all_routes, plan_route
 from .scenario import Scenario
 from .validator import validate_feature
@@ -93,6 +94,27 @@ def environment(lon: float, lat: float):
         return _bound().environment_at(lon, lat)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
+
+
+@app.get("/v1/basemaps")
+def basemaps():
+    return basemap_catalog()
+
+
+@app.get("/v1/basemaps/{provider_id}/{z}/{x}/{y}.png")
+def basemap(provider_id: str, z: int, x: int, y: int):
+    definition = basemap_provider(provider_id)
+    if definition is None or provider_id == "offline" or not definition["available"]:
+        raise HTTPException(404, "basemap provider unavailable")
+    limit = 1 << z if 0 <= z <= int(definition["max_zoom"]) else 0
+    if not limit or not (0 <= x < limit and 0 <= y < limit):
+        raise HTTPException(422, "invalid basemap tile coordinate")
+    try:
+        payload, media_type = basemap_tile(provider_id, z, x, y)
+    except BasemapUnavailable:
+        raise HTTPException(502, "basemap tile unavailable") from None
+    return Response(payload, media_type=media_type,
+                    headers={"Cache-Control": "public, max-age=86400"})
 
 
 @app.post("/v1/plan")

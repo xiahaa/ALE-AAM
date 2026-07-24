@@ -16,6 +16,11 @@
     <section aria-labelledby="load-title">
       <h2 id="load-title"><span>1</span> 加载数据</h2>
       <p class="hint">场景图层由启动命令加载；也可加入本地 GeoJSON 或包含 GeoJSON 的 ZIP。</p>
+      <label class="basemap-field" for="basemap">底图
+        <select id="basemap" disabled>
+          <option value="offline">离线场景图层</option>
+        </select>
+      </label>
       <input id="data-file" class="file-input" type="file" accept=".geojson,.json,.zip" multiple aria-label="加载本地数据">
       <div id="layers" class="layer-list" aria-live="polite"></div>
     </section>
@@ -58,12 +63,14 @@
       <button id="zoom-out" type="button" aria-label="缩小">－</button>
     </div>
     <svg id="map" role="application" aria-label="交互式航线地图" preserveAspectRatio="none">
+      <g id="basemap-tiles"></g>
       <g id="scenario-layers"></g>
       <g id="local-layers"></g>
       <g id="draft"></g>
       <g id="location-marker"></g>
     </svg>
     <div class="map-help">滚轮缩放 · 平移模式拖动地图 · 坐标顺序 [经度, 纬度]</div>
+    <div id="basemap-attribution" class="map-attribution" aria-live="polite">ALE-AAM 场景数据</div>
   </main>
   <script src="app.js"></script>
 </body>

@@ -8,6 +8,14 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 
+# Runtime secrets (commit .env.example only)
+.env
+.env.local
+*.secret.env
+**/.env
+**/.env.local
+**/*.secret.env
+
 # Native and packaging outputs
 build/
 **/build/
