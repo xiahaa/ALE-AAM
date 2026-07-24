@@ -1,9 +1,70 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ale-aam-maptool 0.2</title><link rel="stylesheet" href="style.css"></head>
-<body><aside><h1>ale-aam-maptool</h1><p>离线低空航路规划演示</p>
-<label>候选路线 <select id="route"><option>A — 最短直达</option><option>B — 保守安全</option><option>C — 场景优化</option></select></label>
-<button id="plan">规划当前路线</button><button id="all">规划 A / B / C</button><button id="export" disabled>导出 GeoJSON</button>
-<pre id="status">正在读取已绑定场景…</pre><p class="note">背景图是随场景生成的离线占用栅格；服务不读取网页提交的文件路径，也不请求地图瓦片或 CDN。</p></aside>
-<main><div id="map"><img id="preview" alt="scenario occupancy grid"><svg id="routes" preserveAspectRatio="none"></svg></div></main>
-<script src="app.js"></script></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ALE-AAM 航线编辑器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside class="workspace-panel">
+    <header>
+      <h1>ALE-AAM</h1>
+      <p>离线低空环境查看与航线编辑</p>
+    </header>
+
+    <section aria-labelledby="load-title">
+      <h2 id="load-title"><span>1</span> 加载数据</h2>
+      <p class="hint">场景图层由启动命令加载；也可加入本地 GeoJSON 或包含 GeoJSON 的 ZIP。</p>
+      <input id="data-file" class="file-input" type="file" accept=".geojson,.json,.zip" multiple aria-label="加载本地数据">
+      <div id="layers" class="layer-list" aria-live="polite"></div>
+    </section>
+
+    <section aria-labelledby="inspect-title">
+      <h2 id="inspect-title"><span>2</span> 查看环境</h2>
+      <div class="coordinate-fields">
+        <label>经度<input id="longitude" type="number" step="0.000001" inputmode="decimal"></label>
+        <label>纬度<input id="latitude" type="number" step="0.000001" inputmode="decimal"></label>
+      </div>
+      <div class="button-row">
+        <button id="locate" type="button">定位</button>
+        <button id="reset-view" type="button" class="secondary">全景</button>
+      </div>
+      <div id="environment" class="environment" aria-live="polite">点击地图读取地形、气象、人口和要素属性。</div>
+    </section>
+
+    <section aria-labelledby="route-title">
+      <h2 id="route-title"><span>3</span> 绘制航线</h2>
+      <div class="mode-switch" role="group" aria-label="地图操作模式">
+        <button id="mode-inspect" type="button" aria-pressed="true">查看</button>
+        <button id="mode-draw" type="button" aria-pressed="false">画航点</button>
+        <button id="mode-pan" type="button" aria-pressed="false">平移</button>
+      </div>
+      <p class="hint">画航点模式下点击新增；拖动航点调整位置，选中后可修改高度和速度。</p>
+      <div id="waypoints" class="waypoint-list"></div>
+      <button id="reset-route" type="button" class="secondary">恢复任务起终点</button>
+    </section>
+
+    <section aria-labelledby="export-title">
+      <h2 id="export-title"><span>4</span> 导出</h2>
+      <button id="export" type="button" class="primary" disabled>导出 GeoJSON</button>
+      <output id="status" aria-live="polite">正在读取场景…</output>
+    </section>
+  </aside>
+
+  <main>
+    <div class="map-toolbar" aria-label="地图缩放">
+      <button id="zoom-in" type="button" aria-label="放大">＋</button>
+      <button id="zoom-out" type="button" aria-label="缩小">－</button>
+    </div>
+    <svg id="map" role="application" aria-label="交互式航线地图" preserveAspectRatio="none">
+      <g id="scenario-layers"></g>
+      <g id="local-layers"></g>
+      <g id="draft"></g>
+      <g id="location-marker"></g>
+    </svg>
+    <div class="map-help">滚轮缩放 · 平移模式拖动地图 · 坐标顺序 [经度, 纬度]</div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

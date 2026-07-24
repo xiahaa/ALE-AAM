@@ -22,13 +22,13 @@ from typing import Optional
 
 import numpy as np
 import rasterio
-from PIL import Image
+from PIL import Image, ImageDraw
 from pyproj import Transformer
 from rasterio.crs import CRS
 from rasterio.features import rasterize
 from rasterio.transform import Affine, from_origin
 from rasterio.warp import Resampling, calculate_default_transform, reproject, transform_bounds
-from shapely.geometry import shape
+from shapely.geometry import Point, shape
 from shapely.ops import transform as shp_transform
 
 from .config import DEFAULT_TASK, normalize_task, profile
@@ -94,7 +94,7 @@ class PlanResult:
 
 class Scenario:
     def __init__(self, path, grid: GridSpec, dem, building_height, airspace_mask,
-                 population, task):
+                 population, task, weather=None, layer_paths=None, vector_features=None):
         self.path = Path(path)
         self.grid = grid
         self.dem = dem                          # (H,W) north-up float32 or None
@@ -102,7 +102,13 @@ class Scenario:
         self.buildings_mask = building_height > 0  # backward-compat: all footprints
         self.airspace_mask = airspace_mask      # (H,W) bool north-up
         self.population = population            # (H,W) float or None
+        self.weather = weather                  # (H,W) float or None
         self.task = task
+        self.layer_paths = layer_paths or {}
+        self.vector_features = vector_features or {
+            "buildings": [], "airspace": [], "emergency_sites": [],
+        }
+        self._layer_image_cache = {}
         # cached coordinate transformers (4326 <-> metric CRS)
         self._to_metric = Transformer.from_crs("EPSG:4326", grid.crs, always_xy=True)
         self._to_lonlat = Transformer.from_crs(grid.crs, "EPSG:4326", always_xy=True)
@@ -120,11 +126,18 @@ class Scenario:
             name = layers.get(key)
             candidate = path / name if name else None
             return candidate if candidate and candidate.exists() else None
-        dem_path, bld_path, air_path, pop_path = layer("dem"), layer("buildings"), layer("airspace"), layer("population")
+        layer_paths = {key: layer(key) for key in
+                       ("dem", "buildings", "airspace", "population", "weather", "emergency_sites")}
+        dem_path = layer_paths["dem"]
+        bld_path = layer_paths["buildings"]
+        air_path = layer_paths["airspace"]
+        pop_path = layer_paths["population"]
+        weather_path = layer_paths["weather"]
         if not dem_path or not bld_path or not air_path:
             raise FileNotFoundError("task.json layers must resolve dem, buildings, and airspace")
         building_feats = cls._load_features(bld_path)
         airspace_feats = cls._load_features(air_path)
+        emergency_feats = cls._load_features(layer_paths["emergency_sites"])
 
         all_geoms = [f["geometry"] for f in building_feats + airspace_feats]
         # 1) lon/lat extent + UTM CRS (prefer DEM bounds; else geometry bounds)
@@ -153,6 +166,7 @@ class Scenario:
         # 3) reproject DEM + population onto this grid (north-up)
         dem = cls._reproject_raster(dem_path, transform, width, height, dst_crs) if dem_path else None
         population = cls._reproject_raster(pop_path, transform, width, height, dst_crs) if pop_path else None
+        weather = cls._reproject_raster(weather_path, transform, width, height, dst_crs) if weather_path else None
 
         # 4) project polygons to metric CRS; rasterize building heights + airspace
         default_h = float(task["constraints"].get("default_building_height_m", 25.0))
@@ -161,7 +175,12 @@ class Scenario:
         building_height = cls._rasterize_height(bld_polys_h, transform, width, height)
         airspace_mask = cls._rasterize(air_polys, transform, width, height)
 
-        return cls(path, grid, dem, building_height, airspace_mask, population, task)
+        return cls(
+            path, grid, dem, building_height, airspace_mask, population, task,
+            weather=weather, layer_paths=layer_paths,
+            vector_features={"buildings": building_feats, "airspace": airspace_feats,
+                             "emergency_sites": emergency_feats},
+        )
 
     # ----------------------------------------------------------- grid building
     def occupancy(self, strategy: str = "direct", *, extra_clearance_m: Optional[float] = None,
@@ -251,6 +270,126 @@ class Scenario:
 
     def dem_at(self, lonlat) -> float:
         return self._sample_northup(self.dem, lonlat)
+
+    def weather_at(self, lonlat) -> float:
+        return self._sample_northup(self.weather, lonlat)
+
+    @staticmethod
+    def _finite_or_none(value):
+        return round(float(value), 3) if np.isfinite(value) else None
+
+    def layer_catalog(self) -> list[dict]:
+        """Describe browser-visible layers without exposing server file paths."""
+        definitions = (
+            ("dem", "地形高程", "raster", "m MSL", self.dem is not None),
+            ("buildings", "3D 建筑", "vector", "m", bool(self.vector_features["buildings"])),
+            ("airspace", "空域管制区", "vector", None, bool(self.vector_features["airspace"])),
+            ("weather", "气象网格", "raster", "m/s", self.weather is not None),
+            ("population", "人口密度", "raster", "people/km²", self.population is not None),
+            ("emergency_sites", "应急起降点", "vector", None, bool(self.vector_features["emergency_sites"])),
+        )
+        return [
+            {"id": key, "name": name, "kind": kind, "unit": unit,
+             "available": bool(available), "preview_url": f"/v1/layers/{key}/preview"}
+            for key, name, kind, unit, available in definitions
+        ]
+
+    def environment_at(self, lon: float, lat: float) -> dict:
+        """Return raster samples and visible vector properties at a WGS84 point."""
+        west, south, east, north = self.lonlat_bounds()
+        if not (west <= lon <= east and south <= lat <= north):
+            raise ValueError("coordinate is outside the bound scenario")
+        point = Point(lon, lat)
+        hits = {}
+        for key, features in self.vector_features.items():
+            matched = []
+            for feature in features:
+                try:
+                    geometry = shape(feature["geometry"])
+                    is_hit = geometry.covers(point)
+                    if geometry.geom_type in ("Point", "MultiPoint"):
+                        is_hit = geometry.distance(point) <= 0.00035
+                except Exception:
+                    continue
+                if is_hit:
+                    props = dict(feature.get("properties") or {})
+                    if key == "buildings":
+                        props.setdefault("height_m", self._feature_height(props, 0.0))
+                    matched.append(props)
+                if len(matched) >= 8:
+                    break
+            hits[key] = matched
+        return {
+            "coordinate": [round(float(lon), 7), round(float(lat), 7)],
+            "rasters": {
+                "terrain_elevation_m_msl": self._finite_or_none(self.dem_at((lon, lat))),
+                "weather_value": self._finite_or_none(self.weather_at((lon, lat))),
+                "population_density": self._finite_or_none(self.pop_at((lon, lat))),
+            },
+            "features": hits,
+        }
+
+    @staticmethod
+    def _normalized(arr):
+        finite = np.isfinite(arr)
+        if not finite.any():
+            return np.zeros(arr.shape, dtype=np.float32), finite
+        values = arr[finite]
+        low, high = np.nanpercentile(values, (2, 98))
+        if high <= low:
+            high = low + 1.0
+        return np.clip((arr - low) / (high - low), 0, 1), finite
+
+    def layer_preview_image(self, layer_id: str) -> Image.Image:
+        """Render a deterministic, transparent PNG for one scenario layer."""
+        if layer_id in self._layer_image_cache:
+            return self._layer_image_cache[layer_id].copy()
+        height, width = self.grid.shape
+        rgba = np.zeros((height, width, 4), dtype=np.uint8)
+        if layer_id == "dem" and self.dem is not None:
+            norm, finite = self._normalized(self.dem)
+            rgba[..., 0] = (44 + 130 * norm).astype(np.uint8)
+            rgba[..., 1] = (83 + 95 * norm).astype(np.uint8)
+            rgba[..., 2] = (73 + 72 * norm).astype(np.uint8)
+            rgba[..., 3] = np.where(finite, 255, 0).astype(np.uint8)
+        elif layer_id == "buildings":
+            rgba[self.buildings_mask] = (245, 158, 11, 210)
+        elif layer_id == "airspace":
+            rgba[self.airspace_mask] = (239, 68, 68, 175)
+        elif layer_id == "population" and self.population is not None:
+            norm, finite = self._normalized(self.population)
+            rgba[..., 0], rgba[..., 1], rgba[..., 2] = 249, 115, 22
+            rgba[..., 3] = np.where(finite, 25 + norm * 185, 0).astype(np.uint8)
+        elif layer_id == "weather" and self.weather is not None:
+            norm, finite = self._normalized(self.weather)
+            rgba[..., 0] = (14 + 40 * norm).astype(np.uint8)
+            rgba[..., 1] = (116 + 90 * norm).astype(np.uint8)
+            rgba[..., 2] = (205 + 45 * norm).astype(np.uint8)
+            rgba[..., 3] = np.where(finite, 30 + norm * 175, 0).astype(np.uint8)
+        elif layer_id == "emergency_sites":
+            image = Image.fromarray(rgba)
+            draw = ImageDraw.Draw(image)
+            for feature in self.vector_features["emergency_sites"]:
+                try:
+                    geom = shape(feature["geometry"])
+                    points = list(geom.geoms) if geom.geom_type == "MultiPoint" else [geom]
+                    for point in points:
+                        x, y = self.to_metric(point.x, point.y)
+                        col = (x - self.grid.west) / self.grid.resolution
+                        row = (self.grid.north - y) / self.grid.resolution
+                        draw.ellipse((col - 5, row - 5, col + 5, row + 5),
+                                     fill=(250, 204, 21, 255), outline=(24, 24, 27, 255), width=1)
+                except Exception:
+                    continue
+            self._layer_image_cache[layer_id] = image
+            return image.copy()
+        else:
+            known = {layer["id"] for layer in self.layer_catalog()}
+            if layer_id not in known:
+                raise KeyError(layer_id)
+        image = Image.fromarray(rgba)
+        self._layer_image_cache[layer_id] = image
+        return image.copy()
 
     def preview_image(self, strategy: str = "direct", path_lonlat: Optional[list] = None,
                       start: Optional[list] = None, goal: Optional[list] = None) -> Image.Image:

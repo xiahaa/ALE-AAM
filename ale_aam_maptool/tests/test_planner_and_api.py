@@ -35,9 +35,20 @@ def test_versioned_bound_api_has_no_path_loader():
     assert client.get("/v1/health").json()["status"] == "ok"
     assert client.get("/v1/scenario").status_code == 200
     assert client.get("/v1/preview").headers["content-type"] == "image/png"
+    layers = client.get("/v1/layers").json()["layers"]
+    assert {layer["id"] for layer in layers} == {
+        "dem", "buildings", "airspace", "weather", "population", "emergency_sites"
+    }
+    assert client.get("/v1/layers/airspace/preview").headers["content-type"] == "image/png"
+    start = client.get("/v1/scenario").json()["mission"]["start"]
+    environment = client.get("/v1/environment", params={"lon": start[0], "lat": start[1]})
+    assert environment.status_code == 200
+    assert environment.json()["coordinate"] == pytest.approx(start)
     paths = client.get("/openapi.json").json()["paths"]
     assert "/scenario/load" not in paths
-    assert set(("/v1/health","/v1/scenario","/v1/preview","/v1/plan","/v1/plan-all","/v1/validate")) <= set(paths)
+    assert set(("/v1/health","/v1/scenario","/v1/preview","/v1/layers",
+                "/v1/layers/{layer_id}/preview", "/v1/environment",
+                "/v1/plan","/v1/plan-all","/v1/validate")) <= set(paths)
 
 
 def test_web_assets_are_offline():

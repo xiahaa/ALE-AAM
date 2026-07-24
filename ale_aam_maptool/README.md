@@ -9,7 +9,7 @@ compiler, MSVC, Homebrew, apt, or sudo.
 This software is for benchmark simulation and demonstrations. It is not a real
 flight authorization, dispatch system, or real-time aviation safety product.
 
-Detailed Chinese installation, CLI/API, output-contract, and ALE operations
+Detailed Chinese installation, interactive editor, CLI/API, output-contract, and ALE operations
 guide: [USAGE.zh.md](USAGE.zh.md).
 
 ## Install
@@ -47,9 +47,12 @@ stdout. Diagnostics use stderr. Exit codes are 2 configuration/validation, 3 no
 feasible route, and 4 native backend failure.
 
 The bound-scenario HTTP API is `/v1/health`, `/v1/scenario`, `/v1/preview`,
-`/v1/plan`, `/v1/plan-all`, and `/v1/validate`. The browser cannot request an
-arbitrary server path. The web interface and background grid are fully local;
-there are no map-tile, CDN, font, or tracking requests.
+`/v1/layers`, `/v1/environment`, `/v1/plan`, `/v1/plan-all`, and `/v1/validate`.
+The Web interface loads the bound DEM/building/airspace/weather/population layers,
+supports local GeoJSON/ZIP overlays, inspects environment values, draws and edits
+waypoints, and exports a GeoJSON `LineString`. The browser cannot request an
+arbitrary server path. All map content is local; there are no OSM tile, CDN,
+font, or tracking requests.
 
 ## Scenario contract
 

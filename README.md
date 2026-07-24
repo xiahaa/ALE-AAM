@@ -11,6 +11,7 @@ It is not a real-flight authorization, dispatch, or aviation-safety system.
 
 ```text
 ALE-AAM/
+├── data/                            User-provided Hong Kong airspace snapshot
 ├── ale_aam_maptool/                 Cross-platform public planning tool
 │   ├── ale_aam_maptool/             Python package and offline Web UI
 │   ├── vendor/jps3d/              Vendored BSD-3-Clause JPS backend
@@ -66,6 +67,12 @@ sh install.sh
 sh run.sh doctor --json
 sh run.sh plan-all --scenario ./sample_scenario --outdir ./output
 ```
+
+The offline Web interface now follows one primary workflow: load scenario/local
+data, inspect environment layers, draw or edit waypoints, and export one GeoJSON
+`LineString`. Start it with `serve`, open the printed local URL, and optionally
+load [`data/hong_kong_airspace_20260724.zip`](data/hong_kong_airspace_20260724.zip)
+directly in the browser. No OSM tiles, CDN, or external network request is used.
 
 See [`ale_aam_maptool/USAGE.zh.md`](ale_aam_maptool/USAGE.zh.md) for platform wheel
 selection, CLI/API usage, six ALE artifacts, task release staging, and

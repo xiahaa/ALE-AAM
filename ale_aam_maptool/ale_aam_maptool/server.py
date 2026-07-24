@@ -35,6 +35,8 @@ def _summary(sc):
             "route_profiles": sc.task["route_profiles"], "shape": list(sc.grid.shape),
             "resolution_m": sc.grid.resolution, "crs": str(sc.grid.crs),
             "extent": {"west": west, "south": south, "east": east, "north": north},
+            "constraints": sc.task["constraints"], "aircraft": sc.task["aircraft"],
+            "layers": sc.layer_catalog(),
             "buildings_cells": int(sc.buildings_mask.sum()), "airspace_cells": int(sc.airspace_mask.sum())}
 
 
@@ -66,6 +68,31 @@ def preview(route: str = "A"):
     image = sc.preview_image(strategy)
     stream = io.BytesIO(); image.save(stream, format="PNG")
     return Response(stream.getvalue(), media_type="image/png")
+
+
+@app.get("/v1/layers")
+def layers():
+    return {"layers": _bound().layer_catalog()}
+
+
+@app.get("/v1/layers/{layer_id}/preview")
+def layer_preview(layer_id: str):
+    try:
+        image = _bound().layer_preview_image(layer_id)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown layer: {layer_id}") from exc
+    stream = io.BytesIO()
+    image.save(stream, format="PNG")
+    return Response(stream.getvalue(), media_type="image/png",
+                    headers={"Cache-Control": "public, max-age=3600"})
+
+
+@app.get("/v1/environment")
+def environment(lon: float, lat: float):
+    try:
+        return _bound().environment_at(lon, lat)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/v1/plan")
