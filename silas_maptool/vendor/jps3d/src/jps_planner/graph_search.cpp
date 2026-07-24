@@ -1,5 +1,6 @@
 #include <jps_planner/jps_planner/graph_search.h>
 #include <cmath>
+#include <cstdio>
 
 using namespace JPS;
 
@@ -939,5 +940,4 @@ void JPS3DNeib::FNeib( int dx, int dy, int dz, int norm1, int dev,
       }
   }
 }
-
 

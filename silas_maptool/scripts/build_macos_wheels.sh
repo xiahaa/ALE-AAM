@@ -31,7 +31,7 @@ PY="$VENV/bin/python"
 
 export CIBW_ARCHS_MACOS="$ARCH"
 export CIBW_BUILD=${CIBW_BUILD:-"cp310-* cp311-* cp312-* cp313-*"}
-export CIBW_SKIP=${CIBW_SKIP:-"*-macosx_i386"}
+export CIBW_SKIP=${CIBW_SKIP:-""}
 export CIBW_TEST_REQUIRES=${CIBW_TEST_REQUIRES:-"pytest httpx jsonschema"}
 export CIBW_TEST_COMMAND=${CIBW_TEST_COMMAND:-"python -m silas_maptool doctor --json && silas-maptool inspect --scenario {project}/sample_scenario --json && silas-maptool plan-all --scenario {project}/sample_scenario --outdir {project}/wheel-test-output && python {project}/scripts/wheel_smoke.py {project}/sample_scenario {project}/wheel-test-output && python -m pytest {project}/tests"}
 

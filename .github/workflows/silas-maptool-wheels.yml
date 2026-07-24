@@ -18,17 +18,17 @@ jobs:
           output-dir: wheelhouse
         env:
           CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "*-musllinux* *-win32 *-manylinux_i686 *-macosx_i386"
+          CIBW_SKIP: "*-musllinux* *-win32 *-manylinux_i686"
           CIBW_ARCHS_LINUX: x86_64
           CIBW_ARCHS_WINDOWS: AMD64
           CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}
           CIBW_TEST_REQUIRES: "pytest httpx jsonschema"
           CIBW_TEST_COMMAND: >-
             python -m silas_maptool doctor --json &&
-            silas-maptool inspect --scenario {project}/sample_scenario --json &&
-            silas-maptool plan-all --scenario {project}/sample_scenario --outdir {project}/wheel-test-output &&
-            python {project}/scripts/wheel_smoke.py {project}/sample_scenario {project}/wheel-test-output &&
-            python -m pytest {project}/tests
+            silas-maptool inspect --scenario {project}/silas_maptool/sample_scenario --json &&
+            silas-maptool plan-all --scenario {project}/silas_maptool/sample_scenario --outdir {project}/wheel-test-output &&
+            python {project}/silas_maptool/scripts/wheel_smoke.py {project}/silas_maptool/sample_scenario {project}/wheel-test-output &&
+            python -m pytest {project}/silas_maptool/tests
       - uses: actions/upload-artifact@v4
         with:
           name: "wheels-${{ matrix.os }}"
