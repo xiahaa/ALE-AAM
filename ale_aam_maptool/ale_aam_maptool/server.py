@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from . import __version__
 from .basemaps import BasemapUnavailable, catalog as basemap_catalog, provider as basemap_provider, tile as basemap_tile
+from .offline_basemap import clear_discovery_cache
 from .planner import plan_all_routes, plan_route
 from .scenario import Scenario
 from .validator import validate_feature
@@ -21,6 +22,8 @@ _scenario: Scenario | None = None
 
 def bind_scenario(path, resolution=5.0):
     global _scenario
+    clear_discovery_cache()
+    basemap_tile.cache_clear()
     _scenario = Scenario.load(path, resolution=float(resolution))
     return _scenario
 
@@ -98,23 +101,25 @@ def environment(lon: float, lat: float):
 
 @app.get("/v1/basemaps")
 def basemaps():
-    return basemap_catalog()
+    return basemap_catalog(_bound().path)
 
 
 @app.get("/v1/basemaps/{provider_id}/{z}/{x}/{y}.png")
 def basemap(provider_id: str, z: int, x: int, y: int):
-    definition = basemap_provider(provider_id)
+    sc = _bound()
+    definition = basemap_provider(provider_id, sc.path)
     if definition is None or provider_id == "offline" or not definition["available"]:
         raise HTTPException(404, "basemap provider unavailable")
     limit = 1 << z if 0 <= z <= int(definition["max_zoom"]) else 0
     if not limit or not (0 <= x < limit and 0 <= y < limit):
         raise HTTPException(422, "invalid basemap tile coordinate")
     try:
-        payload, media_type = basemap_tile(provider_id, z, x, y)
+        payload, media_type = basemap_tile(provider_id, z, x, y, str(sc.path.resolve()))
     except BasemapUnavailable:
         raise HTTPException(502, "basemap tile unavailable") from None
+    cache_control = "public, max-age=86400" if definition["online"] else "public, max-age=31536000, immutable"
     return Response(payload, media_type=media_type,
-                    headers={"Cache-Control": "public, max-age=86400"})
+                    headers={"Cache-Control": cache_control})
 
 
 @app.post("/v1/plan")

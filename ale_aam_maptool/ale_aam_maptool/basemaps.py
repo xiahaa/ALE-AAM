@@ -10,6 +10,13 @@ from urllib.request import Request, urlopen
 
 from PIL import Image
 
+from .offline_basemap import (
+    OfflineBasemapError,
+    discover_packs,
+    public_pack,
+    read_tile,
+)
+
 
 _ENV_KEYS = {
     "ALE_AAM_BASEMAP",
@@ -115,11 +122,14 @@ def _configured(provider_id: str) -> bool:
     return False
 
 
-def catalog() -> dict:
+def catalog(scenario_path: str | Path | None = None) -> dict:
     providers = [{**provider, "available": _configured(provider["id"])} for provider in _PROVIDERS]
-    requested = os.environ.get("ALE_AAM_BASEMAP", "offline").strip()
+    packs = discover_packs(scenario_path)
+    providers[1:1] = [public_pack(pack) for pack in packs]
+    requested = os.environ.get("ALE_AAM_BASEMAP", "auto").strip()
     available_ids = {provider["id"] for provider in providers if provider["available"]}
-    return {"default": requested if requested in available_ids else "offline", "providers": providers}
+    fallback = packs[0]["id"] if packs else "offline"
+    return {"default": requested if requested in available_ids else fallback, "providers": providers}
 
 
 def _download_tile(url: str) -> tuple[bytes, str]:
@@ -181,7 +191,15 @@ def _compose_tianditu(base_layer: str, label_layer: str, z: int, x: int, y: int)
 
 
 @lru_cache(maxsize=512)
-def tile(provider_id: str, z: int, x: int, y: int) -> tuple[bytes, str]:
+def tile(provider_id: str, z: int, x: int, y: int,
+         scenario_path: str | Path | None = None) -> tuple[bytes, str]:
+    packs = discover_packs(scenario_path)
+    offline_pack = next((pack for pack in packs if pack["id"] == provider_id), None)
+    if offline_pack is not None:
+        try:
+            return read_tile(offline_pack, z, x, y)
+        except OfflineBasemapError as exc:
+            raise BasemapUnavailable(str(exc)) from None
     if not _configured(provider_id):
         raise BasemapUnavailable("basemap provider is not configured")
     if provider_id == "tianditu-vector":
@@ -198,5 +216,5 @@ def tile(provider_id: str, z: int, x: int, y: int) -> tuple[bytes, str]:
     raise BasemapUnavailable("unknown basemap provider")
 
 
-def provider(provider_id: str) -> dict | None:
-    return next((item for item in catalog()["providers"] if item["id"] == provider_id), None)
+def provider(provider_id: str, scenario_path: str | Path | None = None) -> dict | None:
+    return next((item for item in catalog(scenario_path)["providers"] if item["id"] == provider_id), None)

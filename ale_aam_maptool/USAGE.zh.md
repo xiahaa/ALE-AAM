@@ -89,13 +89,39 @@ ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
 
 | 值 | 含义 |
 |---|---|
+| `auto` | 优先使用当前场景的离线 MBTiles；不存在时使用场景图层 |
 | `offline` | 离线场景图层，正式 ALE 和断网环境使用 |
+| `offline-example` | 场景目录自带的 MBTiles 最小示例；无网络、无密钥 |
 | `tianditu-vector` | 天地图矢量底图与注记 |
 | `tianditu-imagery` | 天地图影像底图与注记 |
 | `mapbox-streets` | Mapbox 街道样式；可用 `ALE_AAM_MAPBOX_STYLE` 换成有权限的样式 |
 | `mapbox-satellite` | Mapbox 卫星影像 |
 
 重新启动 `serve` 后，页面“底图”列表只允许选择已经配置的服务。服务器使用固定白名单地址代理瓦片，浏览器只看到同源的 `/v1/basemaps/...` 地址，不会得到密钥；元数据接口、错误信息和日志也不返回密钥。`.gitignore` 已忽略 `.env`、`.env.local` 和 `*.secret.env`，仓库只提交空值的 `.env.example`。
+
+场景目录下的 `basemaps/*.mbtiles` 会被自动发现。仓库内三个 ALE v0.2
+场景各带一个 `z12-z14` 最小示例，由场景已有 DEM 和建筑物确定性渲染，生成
+过程不会访问天地图、Mapbox 或其他瓦片服务。检查示例：
+
+```powershell
+.\run.cmd basemap inspect --scenario ..\ALE_v0.2\urban_drone_logistics\input\gis
+.\run.cmd basemap verify --pack ..\ALE_v0.2\urban_drone_logistics\input\gis\basemaps\example.mbtiles
+```
+
+```bash
+sh run.sh basemap inspect --scenario ../ALE_v0.2/urban_drone_logistics/input/gis
+sh run.sh basemap verify --pack ../ALE_v0.2/urban_drone_logistics/input/gis/basemaps/example.mbtiles
+```
+
+重新生成一个最小示例：
+
+```bash
+python scripts/create_example_basemap.py \
+  --scenario ../ALE_v0.2/urban_drone_logistics/input/gis \
+  --min-zoom 12 --max-zoom 14
+```
+
+大型正式 MBTiles 不应提交 Git，应放在 Release 或离线交付包中。
 
 这仍不等于供应商密钥可以不受约束地共享。请在天地图/Mapbox 管理后台限制允许来源、URL 或使用范围，按团队制度轮换和撤销；给同事分发真实 `.env` 时使用组织认可的密码管理器或加密通道。
 

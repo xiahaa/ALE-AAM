@@ -39,6 +39,8 @@ run.sh plan --scenario SCENARIO --route A|B|C --out route.geojson
 run.sh plan-all --scenario SCENARIO --outdir output
 run.sh grid --scenario SCENARIO --route A|B|C --out grid.png
 run.sh validate --scenario SCENARIO --output output
+run.sh basemap inspect --scenario SCENARIO
+run.sh basemap verify --pack SCENARIO/basemaps/example.mbtiles
 run.sh serve --scenario SCENARIO --host 127.0.0.1 --port 8000
 ```
 
@@ -61,6 +63,25 @@ commit that file. The browser receives only `/v1/basemaps/...` image URLs: provi
 credentials are not embedded in HTML/JavaScript, API metadata, logs, or Git. Static
 Web assets use no CDN or tracking service. Online basemaps are deliberately not
 enabled in the formal offline ALE task runtime.
+
+### Minimal offline basemap example
+
+The three ALE v0.2 scenarios include a small `basemaps/example.mbtiles` pack at
+zoom levels 12-14. It is rendered deterministically from the bundled DEM and
+building footprints and makes zero network requests. When no explicit provider
+is selected, `ALE_AAM_BASEMAP=auto` selects this pack automatically.
+
+Use `basemap inspect` to list a scenario's packs and `basemap verify` to validate
+the SQLite schema, zoom range, tile count, bounds, and SHA-256. Maintainers can
+regenerate an example without provider credentials:
+
+```text
+python scripts/create_example_basemap.py --scenario ../ALE_v0.2/urban_drone_logistics/input/gis
+```
+
+Large production `.mbtiles` archives remain ignored by Git and should be
+distributed as versioned release assets. The committed examples contain no
+TianDiTu, Mapbox, or OpenStreetMap-hosted tiles.
 
 ## Scenario contract
 

@@ -182,8 +182,8 @@ function renderBasemapTiles() {
 function updateDemForBasemap() {
   const control = state.layerControls.get('dem');
   if (!control) return;
-  const online = state.basemap !== 'offline';
-  if (online) {
+  const tiledBasemap = state.basemap !== 'offline';
+  if (tiledBasemap) {
     if (!control.input.disabled) state.demWasVisible = control.input.checked;
     control.input.checked = false;
     control.input.disabled = true;
@@ -216,7 +216,8 @@ async function loadBasemaps() {
     for (const provider of data.providers) {
       const option = document.createElement('option');
       option.value = provider.id;
-      option.textContent = provider.available ? provider.name : `${provider.name}（未配置）`;
+      const mode = provider.online ? '在线' : (provider.id === 'offline' ? '场景图层' : '离线包');
+      option.textContent = provider.available ? `${provider.name}（${mode}）` : `${provider.name}（未配置）`;
       option.disabled = !provider.available;
       select.appendChild(option);
     }

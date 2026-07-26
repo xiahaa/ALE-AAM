@@ -9,4 +9,5 @@
 *.geojson text eol=lf
 *.tif binary
 *.png binary
+*.mbtiles binary
 *.whl binary

@@ -36,6 +36,12 @@ wheel-test-output/
 .coverage
 htmlcov/
 
+# Offline basemap archives are release assets by default. Keep only the tiny,
+# deterministic examples used by the three ALE cases and the sample scenario.
+*.mbtiles
+!ale_aam_maptool/sample_scenario/basemaps/example.mbtiles
+!ALE_v0.2/*/input/gis/basemaps/example.mbtiles
+
 # Editors and operating systems
 .DS_Store
 Thumbs.db

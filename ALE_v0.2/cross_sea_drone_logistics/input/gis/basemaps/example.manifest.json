@@ -1,0 +1,31 @@
+{
+  "bounds": [
+    114.00321205,
+    22.18543001,
+    114.15642324,
+    22.28272409
+  ],
+  "kind": "ale-aam-offline-basemap-example",
+  "max_zoom": 14,
+  "min_zoom": 12,
+  "network_requests": 0,
+  "pack": "example.mbtiles",
+  "schema_version": "1.0",
+  "sha256": "c40bc8b114cbe686badc95aa689cd332152606fb675e3a0f127abaf95229d2fc",
+  "size_bytes": 348160,
+  "sources": [
+    {
+      "path": "task.json",
+      "sha256": "86665c8117c0006f0db087e60d5d021163cd80faeb7e63c8bd2acc97a8428084"
+    },
+    {
+      "path": "dem.tif",
+      "sha256": "c72944ca860ec462029e88ad4e2e956e7348271cf84520a95bdb7280e3d63d6b"
+    },
+    {
+      "path": "buildings_3d.geojson",
+      "sha256": "ce5f4ea5bff84a782744dbf5f0fbb34a10e4b52f81ce789c48494ab9e2f12638"
+    }
+  ],
+  "tile_count": 70
+}

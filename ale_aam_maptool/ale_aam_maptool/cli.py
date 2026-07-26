@@ -12,6 +12,9 @@ from . import __version__
 from .errors import ConfigurationError, MaptoolError, NativeBackendError
 
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="Offline low-altitude planning toolkit.")
+basemap_app = typer.Typer(add_completion=False, no_args_is_help=True,
+                          help="Inspect and verify scenario-local offline basemap packs.")
+app.add_typer(basemap_app, name="basemap")
 log = logging.getLogger("ale_aam_maptool")
 
 
@@ -108,6 +111,30 @@ def validate(scenario: Path = typer.Option(...),
     report = validate_output(output, _load(scenario, resolution).task)
     _emit(report)
     if not report["ok"]: raise typer.Exit(code=2)
+
+
+@basemap_app.command(name="inspect")
+def basemap_inspect(scenario: Path = typer.Option(...)):
+    """List validated MBTiles packs in SCENARIO/basemaps."""
+    from .offline_basemap import discover_packs, public_pack
+    try:
+        sc = _load(scenario, 5.0)
+        packs = [public_pack(pack) for pack in discover_packs(sc.path)]
+        _emit({"ok": True, "scenario": str(sc.path), "packs": packs})
+    except typer.Exit:
+        raise
+    except Exception as exc:
+        _fail(exc)
+
+
+@basemap_app.command(name="verify")
+def basemap_verify(pack: Path = typer.Option(...)):
+    """Validate one MBTiles pack and emit its SHA-256 and coverage metadata."""
+    from .offline_basemap import inspect_pack
+    try:
+        _emit({"ok": True, "pack": inspect_pack(pack, include_sha256=True)})
+    except Exception as exc:
+        _fail(exc)
 
 
 @app.command()

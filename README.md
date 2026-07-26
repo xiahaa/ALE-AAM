@@ -4,6 +4,9 @@ Standalone repository for the ALE-AAM low-altitude logistics agent benchmark.
 It contains the public cross-platform planning tool and the ALE v0.2 task
 packages, without the surrounding jps3d repository.
 
+Each ALE v0.2 case includes a tiny scenario-local MBTiles example so the Web UI
+has a useful visual background without network access or provider credentials.
+
 This repository is for benchmark simulation, evaluation, and demonstrations.
 It is not a real-flight authorization, dispatch, or aviation-safety system.
 
