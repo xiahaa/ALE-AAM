@@ -18,12 +18,8 @@ const state = {
   selectedWaypoint: null,
   waypointMarkers: [],
   routeLayer: null,
-  activeRoute: 'MANUAL',
-  routeSource: 'manual',
-  routeMetrics: null,
-  currentFeature: null,
-  plannedRoutes: new Map(),
-  planning: false,
+  activeRoute: 'A',
+  routeDrafts: new Map(),
   locationMarker: null,
   localLayers: [],
 };
@@ -317,18 +313,25 @@ async function sampleWaypoint(index) {
   }
 }
 
+function cloneWaypoints(waypoints) {
+  return waypoints.map(waypoint => ({...waypoint, coordinate: [...waypoint.coordinate]}));
+}
+
+function saveCurrentRouteDraft() {
+  if (state.activeRoute && state.waypoints.length) {
+    state.routeDrafts.set(state.activeRoute, cloneWaypoints(state.waypoints));
+  }
+}
+
 function resetRoute() {
   const mission = state.scenario.mission;
   state.waypoints = [waypointDefaults(mission.start), waypointDefaults(mission.goal)];
   state.selectedWaypoint = 0;
-  state.activeRoute = 'MANUAL';
-  state.routeSource = 'manual';
-  state.routeMetrics = null;
-  state.currentFeature = null;
+  state.routeDrafts.set(state.activeRoute, cloneWaypoints(state.waypoints));
   renderDraft();
   Promise.all([sampleWaypoint(0), sampleWaypoint(1)]).then(renderWaypointList);
-  renderPlanSummary();
-  setStatus('已载入任务起点和终点；切换到“画航点”后点击地图添加中间航点。');
+  renderRouteSummary();
+  setStatus(`已重置人工路线 ${state.activeRoute}；切换到“画航点”后点击地图添加中间航点。`);
 }
 
 function coordinateInPlanningExtent(coordinate) {
@@ -375,7 +378,7 @@ const objectiveLabels = {
   time_optimal: '时间最优',
 };
 
-function initializeRouteProfiles() {
+function initializeRouteSelector() {
   const select = $('route-profile');
   select.textContent = '';
   for (const route of ['A', 'B', 'C']) {
@@ -385,120 +388,46 @@ function initializeRouteProfiles() {
     option.textContent = `${route} · ${objectiveLabels[profile.objective] || profile.objective}`;
     select.appendChild(option);
   }
+  select.value = state.activeRoute;
   select.disabled = false;
-  $('auto-plan').disabled = false;
-  $('plan-all').disabled = false;
-  renderPlanSummary();
+  renderRouteSummary();
 }
 
 function routeColor(route) {
   return {A: '#22d3ee', B: '#34d399', C: '#c084fc'}[route] || '#f59e0b';
 }
 
-function renderPlanSummary() {
-  const box = $('plan-summary');
+function renderRouteSummary() {
+  const box = $('route-summary');
   const route = state.activeRoute;
-  $('route-legend-label').textContent = route === 'MANUAL' ? '人工航线' : `路线 ${route}`;
+  $('route-legend-label').textContent = `人工路线 ${route}`;
   $('route-legend-swatch').style.borderColor = routeColor(route);
-  if (state.routeMetrics) {
-    const metrics = state.routeMetrics;
-    const distance = (Number(metrics.total_distance_m) / 1000).toFixed(2);
-    const duration = (Number(metrics.estimated_duration_s) / 60).toFixed(1);
-    const energy = Number(metrics.estimated_energy_wh).toFixed(1);
-    box.innerHTML = `<strong>路线 ${escapeHtml(route)}</strong> · ${distance} km · ${duration} min · ${energy} Wh · ${state.waypoints.length} 航点`;
-    return;
-  }
-  if (state.routeSource === 'edited') {
-    box.innerHTML = `<strong>路线 ${escapeHtml(route)}（已编辑）</strong> · 自动规划指标已失效，可直接导出或重新规划。`;
-    return;
-  }
-  const selected = $('route-profile').value || 'A';
-  const profile = state.scenario?.route_profiles?.[selected];
+  const profile = state.scenario?.route_profiles?.[route];
   const label = profile ? objectiveLabels[profile.objective] || profile.objective : '';
-  box.textContent = `当前为人工航线。可选择 ${selected}${label ? `（${label}）` : ''} 后自动规划。`;
+  box.innerHTML = `<strong>人工路线 ${escapeHtml(route)}</strong>${label ? ` · 任务目标：${escapeHtml(label)}` : ''} · ${state.waypoints.length} 个航点。自动规划已禁用。`;
 }
 
 function markRouteEdited() {
-  if (state.activeRoute !== 'MANUAL') state.routeSource = 'edited';
-  state.routeMetrics = null;
-  state.currentFeature = null;
-  renderPlanSummary();
+  saveCurrentRouteDraft();
+  renderRouteSummary();
 }
 
-function setPlanning(active) {
-  state.planning = active;
-  $('route-profile').disabled = active;
-  $('auto-plan').disabled = active;
-  $('plan-all').disabled = active;
-  $('auto-plan').textContent = active ? '规划中…' : '规划所选路线';
-}
-
-function applyPlannedRoute(result, route, message) {
-  const feature = result.feature;
-  const coordinates = feature?.geometry?.coordinates;
-  if (feature?.geometry?.type !== 'LineString' || !Array.isArray(coordinates) || coordinates.length < 2) {
-    throw new Error('规划服务返回了无效的 LineString。');
-  }
-  const properties = feature.properties || {};
-  const plannedWaypoints = Array.isArray(properties.waypoints) ? properties.waypoints : [];
-  state.waypoints = coordinates.map((coordinate, index) => {
-    const metadata = plannedWaypoints[index] || {};
-    const altitude = Number(metadata.altitude_m_agl ?? state.scenario.route_profiles[route].cruise_agl_m);
-    const speed = Number(metadata.speed_ms ?? state.scenario.route_profiles[route].speed_ms);
-    const msl = Number(metadata.altitude_m_msl);
-    return {
-      coordinate: [Number(coordinate[0]), Number(coordinate[1])],
-      altitude,
-      speed,
-      terrain: Number.isFinite(msl) ? msl - altitude : null,
-    };
-  });
+function selectManualRoute(route) {
+  saveCurrentRouteDraft();
   state.activeRoute = route;
-  state.routeSource = 'automatic';
-  state.routeMetrics = result.metrics || null;
-  state.currentFeature = JSON.parse(JSON.stringify(feature));
+  const saved = state.routeDrafts.get(route);
+  if (saved) {
+    state.waypoints = cloneWaypoints(saved);
+  } else {
+    const mission = state.scenario.mission;
+    state.waypoints = [waypointDefaults(mission.start), waypointDefaults(mission.goal)];
+    saveCurrentRouteDraft();
+  }
   state.selectedWaypoint = 0;
-  setMode('pan');
   renderDraft();
-  renderPlanSummary();
-  if (state.routeLayer && state.routeLayer.getBounds().isValid()) {
-    state.map.fitBounds(state.routeLayer.getBounds(), {padding: [40, 40], animate: false});
-  }
-  setStatus(message);
-}
-
-async function planSelectedRoute() {
-  const route = $('route-profile').value;
-  setPlanning(true);
-  setStatus(`正在规划路线 ${route}…`);
-  try {
-    const result = await request('/v1/plan', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({route, densify_interval_m: 200}),
-    });
-    state.plannedRoutes.set(route, result);
-    applyPlannedRoute(result, route, `路线 ${route} 规划完成；可拖动航点继续编辑，或直接导出 GeoJSON。`);
-  } catch (error) {
-    setStatus(`路线 ${route} 规划失败：${error.message}`, true);
-  } finally {
-    setPlanning(false);
-  }
-}
-
-async function planAll() {
-  const selected = $('route-profile').value;
-  setPlanning(true);
-  setStatus('正在规划 A/B/C 三条路线…');
-  try {
-    const results = await request('/v1/plan-all', {method: 'POST'});
-    for (const route of ['A', 'B', 'C']) state.plannedRoutes.set(route, results[route]);
-    applyPlannedRoute(results[selected], selected, 'A/B/C 三条路线均已规划；切换策略可查看缓存结果。');
-  } catch (error) {
-    setStatus(`A/B/C 规划失败：${error.message}`, true);
-  } finally {
-    setPlanning(false);
-  }
+  Promise.all(state.waypoints.map((_, index) => sampleWaypoint(index))).then(renderWaypointList);
+  renderRouteSummary();
+  setStatus(`已切换到人工路线 ${route}；三个候选草稿会分别保存在当前页面中。`);
 }
 
 function renderWaypointList() {
@@ -726,12 +655,13 @@ async function importFile(file) {
   setStatus(`已加载 ${file.name}：${data.features.length} 个要素。`);
 }
 
-function exportRoute() {
-  if (state.routeSource === 'automatic' && state.currentFeature) {
-    downloadFeature(state.currentFeature, `route_${state.activeRoute.toLowerCase()}.geojson`);
-    setStatus(`已导出自动规划路线 ${state.activeRoute}，共 ${state.waypoints.length} 个航点。`);
+async function exportRoute() {
+  await Promise.all(state.waypoints.map((_, index) => sampleWaypoint(index)));
+  if (state.waypoints.some(waypoint => !Number.isFinite(waypoint.terrain))) {
+    setStatus('部分航点缺少地形高程，无法生成必需的 altitude_m_msl。请检查航点位置和场景数据。', true);
     return;
   }
+  saveCurrentRouteDraft();
   const coordinates = state.waypoints.map(waypoint => waypoint.coordinate.map(value => Number(value.toFixed(7))));
   const waypoints = state.waypoints.map((waypoint, index) => {
     const item = {
@@ -752,7 +682,8 @@ function exportRoute() {
       route_name: state.activeRoute,
       coordinate_order: '[longitude, latitude]',
       created_by: 'ALE-AAM interactive editor',
-      edited_manually: state.routeSource === 'edited',
+      edited_manually: true,
+      automatic_planning: false,
       waypoints,
     },
   };
@@ -761,7 +692,7 @@ function exportRoute() {
     feature.properties.strategy = profile.strategy;
     feature.properties.objective = profile.objective;
   }
-  const filename = state.activeRoute === 'MANUAL' ? 'ale-aam-route.geojson' : `route_${state.activeRoute.toLowerCase()}.geojson`;
+  const filename = `route_${state.activeRoute.toLowerCase()}.geojson`;
   downloadFeature(feature, filename);
   setStatus(`已导出 ${state.waypoints.length} 个航点的 GeoJSON LineString。`);
 }
@@ -780,13 +711,7 @@ function bindEvents() {
   $('mode-inspect').addEventListener('click', () => setMode('inspect'));
   $('mode-draw').addEventListener('click', () => setMode('draw'));
   $('mode-pan').addEventListener('click', () => setMode('pan'));
-  $('auto-plan').addEventListener('click', planSelectedRoute);
-  $('plan-all').addEventListener('click', planAll);
-  $('route-profile').addEventListener('change', event => {
-    const cached = state.plannedRoutes.get(event.target.value);
-    if (cached) applyPlannedRoute(cached, event.target.value, `已切换到缓存的路线 ${event.target.value}。`);
-    else renderPlanSummary();
-  });
+  $('route-profile').addEventListener('change', event => selectManualRoute(event.target.value));
   $('reset-route').addEventListener('click', resetRoute);
   $('reset-view').addEventListener('click', resetView);
   $('export').addEventListener('click', exportRoute);
@@ -839,7 +764,7 @@ async function initialize() {
     bindEvents();
     setMode('inspect');
     state.scenario = await request('/v1/scenario');
-    initializeRouteProfiles();
+    initializeRouteSelector();
     state.scenarioBounds = scenarioLeafletBounds();
     state.planningBounds = planningLeafletBounds();
     resetView();

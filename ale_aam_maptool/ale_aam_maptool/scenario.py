@@ -1,4 +1,4 @@
-"""Load an ALE scenario (GIS layers) and build strategy-specific occupancy grids.
+"""Load and query the GIS layers in an ALE-AAM scenario.
 
 A *scenario* directory mirrors the ALE ``input/gis/`` folder::
 
@@ -9,14 +9,14 @@ A *scenario* directory mirrors the ALE ``input/gis/`` folder::
       population_density.tif       optional — used by mission_optimized
       task.json                    optional mission params (start/goal/envelopes)
 
-Everything is projected to a local UTM metric grid at a chosen resolution. The
-planner (JPS) consumes a flat, signed-char occupancy array whose layout this module
-computes.
+Everything is projected to a local UTM metric grid at a chosen resolution for
+deterministic layer sampling and visualization. Automatic route planning is not
+part of the final public tool.
 """
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -28,31 +28,11 @@ from rasterio.crs import CRS
 from rasterio.features import rasterize
 from rasterio.transform import Affine, from_origin
 from rasterio.warp import Resampling, calculate_default_transform, reproject, transform_bounds
-from shapely.geometry import Point, box, shape
+from shapely.geometry import Point, shape
 from shapely.ops import transform as shp_transform
 
-from .config import DEFAULT_TASK, normalize_task, profile
-from .grid import dilate, utm_epsg
-
-STRATEGIES = ("direct", "conservative", "mission_optimized")
-
-# How aggressively each strategy modifies the grid (defaults; overridable per call).
-# cruise_frac sets the cruise altitude as a fraction of the [min,max] AGL envelope;
-# a building is an obstacle only where building_height >= cruise_agl - vertical_clearance
-# (i.e. buildings shorter than the cruise altitude are overflown — true 3D overflight).
-STRATEGY_PARAMS = {
-    "direct":        dict(cruise_frac=1.0,  extra_clearance_m=0.0,  pop_block=False),
-    "conservative":  dict(cruise_frac=0.35, extra_clearance_m=20.0, pop_block=False),
-    "mission_optimized": dict(cruise_frac=0.5, extra_clearance_m=5.0, pop_block=True),
-}
-
-
-def strategy_cruise_agl(task: dict, strategy: str) -> float:
-    """Cruise altitude (m AGL) for a strategy, from the task envelope."""
-    amin = float(task["constraints"]["altitude_m_agl"]["min"])
-    amax = float(task["constraints"]["altitude_m_agl"]["max"])
-    frac = STRATEGY_PARAMS.get(strategy, {}).get("cruise_frac", 1.0)
-    return amin + frac * (amax - amin)
+from .config import normalize_task
+from .grid import utm_epsg
 
 
 @dataclass
@@ -70,26 +50,6 @@ class GridSpec:
     @property
     def shape(self):
         return (self.height, self.width)
-
-
-@dataclass
-class OccupancyGrid:
-    """A JPS-ready occupancy grid: flat signed-char array + origin/dim/resolution."""
-    map_data: list           # flat (H*W), int8, 0=free / 1=obstacle (cy*W+cx, y-up)
-    dim: list                # [W, H]
-    origin: list             # [west, south] metric (bottom-left)
-    resolution: float
-    shape_northup: tuple     # (H, W) of the source north-up mask (for debugging)
-
-
-@dataclass
-class PlanResult:
-    """A planned ALE route."""
-    feature: dict            # GeoJSON Feature (geometry + properties), ALE-contract
-    metrics: dict            # deterministic distance/duration/energy/n_waypoints
-    path_lonlat: list        # [[lon, lat], ...]
-    strategy: str
-    planning_ms: float
 
 
 class Scenario:
@@ -112,13 +72,6 @@ class Scenario:
         # cached coordinate transformers (4326 <-> metric CRS)
         self._to_metric = Transformer.from_crs("EPSG:4326", grid.crs, always_xy=True)
         self._to_lonlat = Transformer.from_crs(grid.crs, "EPSG:4326", always_xy=True)
-        self._planning_mask = None
-        extent = self.task.get("planning_extent")
-        if isinstance(extent, dict) and extent.get("bounds_wgs84"):
-            polygon = shp_transform(self._to_metric.transform, box(*extent["bounds_wgs84"]))
-            self._planning_mask = self._rasterize(
-                [polygon], self.grid.transform, self.grid.width, self.grid.height
-            )
 
     # ------------------------------------------------------------------ loading
     @classmethod
@@ -187,64 +140,6 @@ class Scenario:
             weather=weather, layer_paths=layer_paths,
             vector_features={"buildings": building_feats, "airspace": airspace_feats,
                              "emergency_sites": emergency_feats},
-        )
-
-    # ----------------------------------------------------------- grid building
-    def occupancy(self, strategy: str = "direct", *, extra_clearance_m: Optional[float] = None,
-                  pop_block: Optional[bool] = None, pop_percentile: Optional[float] = None,
-                  terrain_block: bool = False, terrain_ceiling_m: Optional[float] = None,
-                  cruise_agl: Optional[float] = None,
-                  force_free_lonlat: Optional[list] = None) -> OccupancyGrid:
-        """Build a JPS-ready occupancy grid for a strategy.
-
-        Buildings shorter than ``cruise_agl - vertical_clearance`` are overflown
-        (3D overflight); only taller buildings and no-fly zones become obstacles.
-        """
-        if strategy not in STRATEGIES:
-            raise ValueError(f"strategy must be one of {STRATEGIES}, got {strategy!r}")
-        params = dict(STRATEGY_PARAMS[strategy])
-        if extra_clearance_m is not None:
-            params["extra_clearance_m"] = extra_clearance_m
-        if pop_block is not None:
-            params["pop_block"] = pop_block
-
-        cruise = float(cruise_agl) if cruise_agl is not None else strategy_cruise_agl(self.task, strategy)
-        vc = float(self.task["constraints"].get("vertical_clearance_m", 10.0))
-        thr = cruise - vc
-        occ = (self.building_height >= thr) | self.airspace_mask
-
-        if terrain_block and self.dem is not None:
-            cap = terrain_ceiling_m
-            if cap is None:
-                cap = float(np.nanpercentile(self.dem, 99) + 50.0)
-            occ = occ | (self.dem > cap)
-
-        if params["pop_block"] and self.population is not None:
-            pct = pop_percentile
-            if pct is None:
-                pct = float(self.task["constraints"].get("noise_sensitive_pop_percentile", 80.0))
-            pop = self.population
-            thr = float(np.nanpercentile(pop[pop == pop], pct)) if np.isfinite(pop).any() else np.inf
-            occ = occ | (pop >= thr)
-
-        radius = int(round(params["extra_clearance_m"] / self.grid.resolution))
-        occ = dilate(occ, radius)
-
-        if self._planning_mask is not None:
-            occ = occ | ~self._planning_mask
-
-        # keep start/goal (and any requested points) free
-        for ll in force_free_lonlat or []:
-            self._clear_around(occ, ll, radius=max(1, radius, 1))
-
-        # pack for JPS: y-up, origin at bottom-left
-        flat = np.flipud(occ).astype(np.int8).reshape(-1)
-        return OccupancyGrid(
-            map_data=flat.tolist(),
-            dim=[self.grid.width, self.grid.height],
-            origin=[self.grid.west, self.grid.south],
-            resolution=self.grid.resolution,
-            shape_northup=(self.grid.height, self.grid.width),
         )
 
     # ----------------------------------------------------------- coordinates
@@ -416,22 +311,6 @@ class Scenario:
         self._layer_image_cache[layer_id] = image
         return image.copy()
 
-    def preview_image(self, strategy: str = "direct", path_lonlat: Optional[list] = None,
-                      start: Optional[list] = None, goal: Optional[list] = None) -> Image.Image:
-        """Render the (north-up) occupancy grid as a grayscale PIL image."""
-        og = self.occupancy(strategy)
-        occ_northup = np.flipud(np.array(og.map_data, dtype=np.int8).reshape(self.grid.shape))
-        img = np.where(occ_northup > 0, 0, 255).astype(np.uint8)
-        rgb = np.stack([img, img, img], axis=-1)
-        # overlay DEM shading lightly if present
-        if self.dem is not None:
-            d = self.dem
-            d = np.clip((d - np.nanmin(d)) / (np.nanmax(d) - np.nanmin(d) + 1e-9), 0, 1)
-            d = np.nan_to_num(d, nan=0.0)
-            rgb = np.clip(rgb.astype(np.int32) - (40 * (1 - d)).astype(np.int32)[..., None], 0, 255).astype(np.uint8)
-        pil = Image.fromarray(rgb)
-        return pil
-
     # ------------------------------------------------------------------ helpers
     @staticmethod
     def _find(dir_: Path, stem: str, suffix: str) -> Optional[Path]:
@@ -556,13 +435,3 @@ class Scenario:
                       dst_transform=transform, dst_crs=dst_crs, resampling=resampling,
                       src_nodata=src.nodata, dst_nodata=np.nan)
             return out
-
-    def _clear_around(self, occ: np.ndarray, lonlat, radius: int = 2):
-        x, y = self.to_metric(*lonlat)
-        c = int((x - self.grid.west) / self.grid.resolution)
-        r = int((self.grid.north - y) / self.grid.resolution)
-        for dr in range(-radius, radius + 1):
-            for dc in range(-radius, radius + 1):
-                rr, cc = r + dr, c + dc
-                if 0 <= rr < self.grid.height and 0 <= cc < self.grid.width:
-                    occ[rr, cc] = False

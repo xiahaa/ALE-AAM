@@ -28,12 +28,11 @@ h2 span { display: inline-grid; place-items: center; width: 24px; height: 24px; 
 .basemap-field { display: grid; gap: 5px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
 .basemap-field select { width: 100%; padding: 8px; border: 1px solid #3a5877; border-radius: 7px; background: var(--surface); color: inherit; }
 .basemap-field select:disabled { opacity: .55; }
-.planner-controls { display: grid; gap: 8px; margin-bottom: 10px; }
-.planner-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
-.planner-controls select { width: 100%; padding: 8px; border: 1px solid #3a5877; border-radius: 7px; background: var(--surface); color: inherit; }
-.planner-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.plan-summary { margin-bottom: 10px; padding: 9px 10px; border: 1px solid #264766; border-radius: 7px; background: #081729; color: #cbdced; font-size: 12px; line-height: 1.5; }
-.plan-summary strong { color: #fff; }
+.route-controls { display: grid; gap: 8px; margin-bottom: 10px; }
+.route-controls label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.route-controls select { width: 100%; padding: 8px; border: 1px solid #3a5877; border-radius: 7px; background: var(--surface); color: inherit; }
+.route-summary { margin-bottom: 10px; padding: 9px 10px; border: 1px solid #264766; border-radius: 7px; background: #081729; color: #cbdced; font-size: 12px; line-height: 1.5; }
+.route-summary strong { color: #fff; }
 .file-input::file-selector-button { margin-right: 9px; border: 0; border-radius: 5px; background: #244665; color: #fff; padding: 6px 8px; cursor: pointer; }
 .file-input:hover, button:hover { border-color: var(--accent); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

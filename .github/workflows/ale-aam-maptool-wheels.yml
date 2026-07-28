@@ -1,11 +1,12 @@
-name: ALE-AAM maptool cross-platform wheels
+name: ALE-AAM final package
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["ale_aam_maptool/**", "ALE_v0.2/**", "data/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
+    paths: ["ale_aam_maptool/**", "ALE_v0.2/**", "data/**", ".github/workflows/ale-aam-maptool-wheels.yml", "README*.md"]
   pull_request:
-    paths: ["ale_aam_maptool/**", "ALE_v0.2/**", "data/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
+    paths: ["ale_aam_maptool/**", "ALE_v0.2/**", "data/**", ".github/workflows/ale-aam-maptool-wheels.yml", "README*.md"]
+
 jobs:
   repository-tests:
     runs-on: ubuntu-22.04
@@ -16,85 +17,98 @@ jobs:
       - run: python -m pip install "./ale_aam_maptool[test]"
       - run: node --check ale_aam_maptool/ale_aam_maptool/web/app.js
       - run: python -m pytest ale_aam_maptool/tests ALE_v0.2/tests
-  wheels:
+
+  wheel:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m pip install build
+      - run: python -m build --wheel --outdir wheelhouse ale_aam_maptool
+      - name: Verify universal final wheel
+        shell: python
+        run: |
+          from pathlib import Path
+          wheels = list(Path("wheelhouse").glob("ale_aam_maptool-1.0.0-py3-none-any.whl"))
+          if len(wheels) != 1:
+              raise SystemExit(f"expected one universal wheel, found {wheels}")
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ale-aam-maptool-1.0.0-universal-wheel
+          path: wheelhouse/*.whl
+          if-no-files-found: error
+          retention-days: 30
+
+  platform-smoke:
+    needs: wheel
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, windows-2022, macos-15-intel, macos-14]
+        python: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
-      - uses: pypa/cibuildwheel@v4.1.0
-        with:
-          package-dir: ale_aam_maptool
-          output-dir: wheelhouse
-        env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
-          CIBW_SKIP: "*-musllinux* *-win32 *-manylinux_i686"
-          CIBW_ARCHS_LINUX: x86_64
-          CIBW_ARCHS_WINDOWS: AMD64
-          CIBW_ARCHS_MACOS: ${{ matrix.os == 'macos-14' && 'arm64' || 'x86_64' }}
-          CIBW_TEST_REQUIRES: "pytest httpx jsonschema"
-          CIBW_TEST_COMMAND: >-
-            python -m ale_aam_maptool doctor --json &&
-            ale-aam-maptool inspect --scenario {project}/ale_aam_maptool/sample_scenario --json &&
-            ale-aam-maptool plan-all --scenario {project}/ale_aam_maptool/sample_scenario --outdir {project}/wheel-test-output &&
-            python {project}/ale_aam_maptool/scripts/wheel_smoke.py {project}/ale_aam_maptool/sample_scenario {project}/wheel-test-output &&
-            python -m pytest {project}/ale_aam_maptool/tests
-      - uses: actions/upload-artifact@v4
-        with:
-          name: "wheels-${{ matrix.os }}"
-          path: wheelhouse/*.whl
-          if-no-files-found: error
-          retention-days: 30
-  macos-wheel-bundle:
-    needs: wheels
-    runs-on: ubuntu-22.04
-    steps:
+      - uses: actions/setup-python@v5
+        with: {python-version: "${{ matrix.python }}"}
       - uses: actions/download-artifact@v4
-        with:
-          pattern: "wheels-macos-*"
-          merge-multiple: true
-          path: macos-wheels
-      - name: Verify macOS release matrix
-        shell: python
-        run: |
-          from pathlib import Path
-          wheels = sorted(Path("macos-wheels").glob("ale_aam_maptool-0.3.0-*.whl"))
-          names = [wheel.name for wheel in wheels]
-          missing = []
-          for version in ("310", "311", "312", "313"):
-              for arch in ("x86_64", "arm64"):
-                  if not any(
-                      f"-cp{version}-cp{version}-" in name
-                      and name.endswith(f"_{arch}.whl")
-                      for name in names
-                  ):
-                      missing.append(f"cp{version}-macosx_{arch}")
-          if missing or len(wheels) != 8:
-              raise SystemExit(
-                  f"expected eight macOS wheels; missing={missing}; found={names}"
-              )
-          print("\n".join(names))
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ale-aam-maptool-0.3.0-macos-wheels
-          path: macos-wheels/*.whl
-          if-no-files-found: error
-          retention-days: 30
+        with: {name: ale-aam-maptool-1.0.0-universal-wheel, path: dist}
+      - run: python -m pip install pytest httpx jsonschema
+      - run: python -m pip install dist/ale_aam_maptool-1.0.0-py3-none-any.whl
+      - run: python -m ale_aam_maptool doctor --json
+      - run: python -m ale_aam_maptool inspect --scenario ale_aam_maptool/sample_scenario --json
+      - run: python ale_aam_maptool/scripts/wheel_smoke.py ale_aam_maptool/sample_scenario
+      - run: python -m pytest ale_aam_maptool/tests
+
   offline-wheelhouse:
-    needs: wheels
+    needs: [wheel, repository-tests]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with: {python-version: "3.12"}
       - uses: actions/download-artifact@v4
-        with: {pattern: "wheels-ubuntu-22.04", merge-multiple: true, path: dist}
-      - name: Assemble Linux CPython 3.12 offline wheelhouse
-        run: >-
+        with: {name: ale-aam-maptool-1.0.0-universal-wheel, path: dist}
+      - run: >-
           python -m pip download --only-binary=:all:
-          --dest wheelhouse dist/ale_aam_maptool-*cp312*.whl
+          --dest wheelhouse dist/ale_aam_maptool-1.0.0-py3-none-any.whl
       - run: python ale_aam_maptool/scripts/offline_install_smoke.py ale_aam_maptool/sample_scenario
       - uses: actions/upload-artifact@v4
+        with:
+          name: ale-aam-ubuntu-py312-wheelhouse
+          path: wheelhouse
+          if-no-files-found: error
+          retention-days: 30
+
+  ale-upload-packages:
+    needs: offline-wheelhouse
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - uses: actions/download-artifact@v4
         with: {name: ale-aam-ubuntu-py312-wheelhouse, path: wheelhouse}
+      - run: >-
+          python ALE_v0.2/scripts/stage_release.py
+          --wheelhouse wheelhouse
+          --out ALE_v0.2/dist/ale-aam-final
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ale-aam-urban-drone-logistics-base
+          path: ALE_v0.2/dist/ale-aam-final/ale-aam-urban_drone_logistics-base.zip
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ale-aam-cross-sea-drone-logistics-base
+          path: ALE_v0.2/dist/ale-aam-final/ale-aam-cross_sea_drone_logistics-base.zip
+          if-no-files-found: error
+          retention-days: 30
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ale-aam-emergency-blood-transport-base
+          path: ALE_v0.2/dist/ale-aam-final/ale-aam-emergency_blood_transport-base.zip
+          if-no-files-found: error
+          retention-days: 30

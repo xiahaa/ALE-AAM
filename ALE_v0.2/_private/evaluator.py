@@ -150,7 +150,7 @@ def evaluate(input_dir, output_dir, reference_dir):
     final_match=float(final_name in features and final and features.get(final_name) and final.get("geometry")==features[final_name].get("geometry"))
     expected_totals={r:sum(risks[r][d]*weights[d] for d in DIMS) for r in risks}
     best=min(expected_totals,key=expected_totals.get) if expected_totals else None
-    selection=float(final_name==best and totals and min(totals,key=totals.get)==final_name)
+    selection=float(bool(final_name==best and totals and min(totals,key=totals.get)==final_name))
     risk_score=(sum(risk_points)/max(1,len(risk_points))*.8+final_match*.1+selection*.1)
 
     text=(output_dir/"emergency_response_plan.md").read_text(encoding="utf-8",errors="ignore").lower() if present["emergency_response_plan.md"] else ""

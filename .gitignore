@@ -9,6 +9,7 @@ __pycache__/
 **/.cache/
 .source-cache/
 **/.source-cache/
+/legacy/
 *.py[cod]
 *.egg-info/
 
@@ -20,7 +21,7 @@ __pycache__/
 **/.env.local
 **/*.secret.env
 
-# Native and packaging outputs
+# Build and packaging outputs
 build/
 **/build/
 dist/

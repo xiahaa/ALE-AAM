@@ -41,24 +41,20 @@
     </section>
 
     <section aria-labelledby="route-title">
-      <h2 id="route-title"><span>3</span> 规划与编辑航线</h2>
-      <div class="planner-controls">
-        <label for="route-profile">规划策略
+      <h2 id="route-title"><span>3</span> 手工绘制与编辑航线</h2>
+      <div class="route-controls">
+        <label for="route-profile">候选路线
           <select id="route-profile" disabled>
-            <option>正在读取策略…</option>
+            <option>正在读取任务…</option>
           </select>
         </label>
-        <div class="planner-buttons">
-          <button id="auto-plan" type="button" class="primary" disabled>规划所选路线</button>
-          <button id="plan-all" type="button" disabled>规划 A/B/C</button>
-        </div>
       </div>
-      <div id="plan-summary" class="plan-summary" aria-live="polite">选择策略后自动规划，结果仍可拖动和编辑。</div>
+      <div id="route-summary" class="route-summary" aria-live="polite">请选择 A、B 或 C，然后手工添加和编辑航点。</div>
       <div class="mode-switch" role="group" aria-label="地图操作模式">
         <button id="mode-draw" type="button" aria-pressed="false">画航点</button>
         <button id="mode-pan" type="button" aria-pressed="false">平移</button>
       </div>
-      <p class="hint">画航点模式下点击新增；拖动航点调整位置，选中后可修改高度和速度。</p>
+      <p class="hint">最终版不提供自动规划。画航点模式下点击新增；拖动航点调整位置，选中后可修改高度和速度。</p>
       <div id="waypoints" class="waypoint-list"></div>
       <button id="reset-route" type="button" class="secondary">恢复任务起终点</button>
     </section>
@@ -77,9 +73,9 @@
       <span><i class="legend-airspace"></i>限制空域</span>
       <span><i class="legend-emergency"></i>应急点</span>
       <span><i id="route-legend-swatch" class="legend-route"></i><b id="route-legend-label">当前航线</b></span>
-      <span><i class="legend-coverage"></i>规划有效范围</span>
+      <span><i class="legend-coverage"></i>任务有效范围</span>
     </div>
-    <div class="map-help">黄色虚线内可查询和规划 · 框外底图仅供视觉参考 · 坐标顺序 [经度, 纬度]</div>
+    <div class="map-help">黄色虚线内可查询和手工绘制 · 框外底图仅供视觉参考 · 坐标顺序 [经度, 纬度]</div>
     <div id="basemap-attribution" class="map-attribution" aria-live="polite">ALE-AAM 场景数据</div>
   </main>
   <script src="vendor/leaflet/leaflet.js"></script>

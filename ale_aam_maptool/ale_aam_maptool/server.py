@@ -12,7 +12,6 @@ from pydantic import BaseModel
 from . import __version__
 from .basemaps import BasemapUnavailable, catalog as basemap_catalog, provider as basemap_provider, tile as basemap_tile
 from .offline_basemap import clear_discovery_cache
-from .planner import plan_all_routes, plan_route
 from .scenario import Scenario
 from .validator import validate_feature
 
@@ -50,11 +49,6 @@ def _summary(sc):
             "buildings_cells": int(sc.buildings_mask.sum()), "airspace_cells": int(sc.airspace_mask.sum())}
 
 
-class PlanRequest(BaseModel):
-    route: str
-    densify_interval_m: float = 200.0
-
-
 class ValidateRequest(BaseModel):
     feature: dict
     expected_route: str | None = None
@@ -66,18 +60,6 @@ def health(): return {"status": "ok", "version": __version__, "scenario_bound": 
 
 @app.get("/v1/scenario")
 def scenario(): return _summary(_bound())
-
-
-@app.get("/v1/preview")
-def preview(route: str = "A"):
-    sc = _bound()
-    route = route.upper()
-    if route not in "ABC": raise HTTPException(422, "route must be A, B, or C")
-    profile = sc.task["route_profiles"][route]
-    strategy = "mission_optimized" if route == "C" else profile["strategy"]
-    image = sc.preview_image(strategy)
-    stream = io.BytesIO(); image.save(stream, format="PNG")
-    return Response(stream.getvalue(), media_type="image/png")
 
 
 @app.get("/v1/layers")
@@ -136,22 +118,6 @@ def basemap(provider_id: str, z: int, x: int, y: int):
     cache_control = "public, max-age=86400" if definition["online"] else "public, max-age=31536000, immutable"
     return Response(payload, media_type=media_type,
                     headers={"Cache-Control": cache_control})
-
-
-@app.post("/v1/plan")
-def plan(request: PlanRequest):
-    try:
-        result = plan_route(_bound(), request.route, densify_interval_m=request.densify_interval_m)
-        return {"feature": result.feature, "metrics": result.metrics}
-    except Exception as exc: raise HTTPException(422, str(exc)) from exc
-
-
-@app.post("/v1/plan-all")
-def plan_all():
-    try:
-        return {route: {"feature": result.feature, "metrics": result.metrics}
-                for route, result in plan_all_routes(_bound()).items()}
-    except Exception as exc: raise HTTPException(422, str(exc)) from exc
 
 
 @app.post("/v1/validate")
