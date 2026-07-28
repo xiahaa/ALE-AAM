@@ -1,6 +1,6 @@
 {
   "acquisition_date_utc": "2026-07-24",
-  "actual_derivation": "LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ remains a non-operational fixture pending a fixed licensed CAD export",
+  "actual_derivation": "LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot",
   "authoritative_sources": [
     {
       "name": "LandsD 5 m DTM",
@@ -13,11 +13,6 @@
       "url": "https://data.gov.hk/en-data/dataset/hk-landsd-openmap-landsd-building"
     },
     {
-      "name": "CAD eSUA RFZ map",
-      "status": "fixed-date export required before benchmark publication",
-      "url": "https://esua.cad.gov.hk/web/droneMap"
-    },
-    {
       "name": "HKO latest ten-minute wind",
       "status": "observed snapshot distributed through gis/weather_grid.tif",
       "url": "https://data.gov.hk/en-data/dataset/hk-hko-rss-latest-ten-minute-wind-info"
@@ -26,6 +21,16 @@
       "name": "2021 Population Census",
       "status": "authoritative STPU snapshot distributed through gis/population_density.tif",
       "url": "https://data.gov.hk/en-data/dataset/hk-censtatd-census_geo-2021-population-census-by-dcd"
+    },
+    {
+      "name": "CAD/eSUA RFZ fixed-date export",
+      "status": "user-provided 2026-07-24 snapshot distributed as gis/airspace_zones.geojson; source redistribution terms must be confirmed before publication",
+      "url": "https://esua.cad.gov.hk/web/droneMap"
+    },
+    {
+      "name": "LandsD topographic map API",
+      "status": "bounded z12-z17 snapshot distributed through gis/basemaps/hong_kong_landsd.mbtiles",
+      "url": "https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI"
     }
   ],
   "conversion_steps": [
@@ -33,13 +38,23 @@
     "query LandsD buildings and derive height_m as TopHeight minus BaseHeight",
     "rasterize 2021 Census STPU persons per square kilometre onto the DTM grid",
     "write the observed HKO station-mean wind speed onto the DTM grid without invented station coordinates",
-    "record raw snapshots and SHA-256 for every distributed GIS file"
+    "record raw snapshots and SHA-256 for every distributed GIS file",
+    "verify the supplied archive SHA-256, repair polygon topology, clip RFZs to the DEM extent, and sort deterministically",
+    "download a bounded, rate-limited LandsD topographic XYZ snapshot for offline visualization"
   ],
   "crs": "EPSG:4326 for vectors; EPSG:2326 for authoritative rasters; the tool reprojects with always_xy=True to the mission's local UTM zone",
   "files": [
     {
       "path": "airspace_zones.geojson",
-      "sha256": "fcb566bb952e673a562dbfc4e976c4222131563dee228b6ecbaf383484f53ead"
+      "sha256": "ed060fce22d19de2cedb78dbda66ecf90e9282e5489a2f530088af71c5954bdd"
+    },
+    {
+      "path": "basemaps/hong_kong_landsd.manifest.json",
+      "sha256": "0270febbba8b77e3d4c07d69bb95325c25b6902d925720bcbb07ed205a81de4a"
+    },
+    {
+      "path": "basemaps/hong_kong_landsd.mbtiles",
+      "sha256": "4485dcaba6ffcdc3f03d31ff607af5bdbf172b4dc27461919bd7844a321da35d"
     },
     {
       "path": "buildings_3d.geojson",
@@ -59,17 +74,44 @@
     },
     {
       "path": "task.json",
-      "sha256": "86665c8117c0006f0db087e60d5d021163cd80faeb7e63c8bd2acc97a8428084"
+      "sha256": "a87c4747f7fc5ba1c452e569f66b6b938c22b6802e5cdaf48e002f55b3379d43"
     },
     {
       "path": "weather_grid.tif",
       "sha256": "d4918fceedc66976e2b24a15d2ce402afa93963113f05814aa1598daa2576d88"
     }
   ],
-  "generated_by": "scripts/build_tasks.py + scripts/refresh_official_sources.py",
+  "generated_by": "scripts/build_tasks.py + scripts/refresh_official_sources.py + scripts/import_hk_airspace_snapshot.py + ale_aam_maptool/scripts/build_hk_landsd_basemap.py",
   "layer_provenance": {
     "airspace_zones.geojson": {
-      "status": "benchmark fixture; MUST be replaced by a fixed-date CAD eSUA RFZ export before publication"
+      "crs": "EPSG:4326",
+      "feature_count": 6,
+      "license": "Source redistribution terms must be confirmed before benchmark publication",
+      "snapshot_date": "2026-07-24",
+      "source": "data/hong_kong_airspace_20260724.zip",
+      "source_sha256": "b0cde3a908091359c1e10190d185ad74c60511cd943e5498b3c8bdd6b6f16614",
+      "source_url": "https://esua.cad.gov.hk/web/droneMap",
+      "status": "fixed-date user-provided RFZ snapshot; license verification remains a publication blocker"
+    },
+    "basemaps/hong_kong_landsd.mbtiles": {
+      "acquisition_date_utc": "2026-07-28T00:00:00Z",
+      "api_template": "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/basemap/WGS84/{z}/{x}/{y}.png",
+      "attribution": "Map from Lands Department, HKSAR Government",
+      "bounds": [
+        114.00321205,
+        22.18543001,
+        114.15642324,
+        22.28272409
+      ],
+      "crs": "EPSG:3857 XYZ tiles requested through the LandsD WGS84 endpoint",
+      "license": "DATA.GOV.HK Terms and Conditions",
+      "source": "https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI",
+      "status": "authoritative bounded offline visualization snapshot",
+      "tile_count": 3038,
+      "zoom": [
+        12,
+        17
+      ]
     },
     "buildings_3d.geojson": {
       "crs": "EPSG:4326",

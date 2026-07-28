@@ -5,6 +5,8 @@ __pycache__/
 **/__pycache__/
 .pytest_cache/
 **/.pytest_cache/
+.cache/
+**/.cache/
 *.py[cod]
 *.egg-info/
 
@@ -36,11 +38,11 @@ wheel-test-output/
 .coverage
 htmlcov/
 
-# Offline basemap archives are release assets by default. Keep only the tiny,
-# deterministic examples used by the three ALE cases and the sample scenario.
+# Offline basemap archives are release assets by default. Keep the tiny sample
+# pack plus the bounded LandsD snapshots used by the three Hong Kong ALE cases.
 *.mbtiles
 !ale_aam_maptool/sample_scenario/basemaps/example.mbtiles
-!ALE_v0.2/*/input/gis/basemaps/example.mbtiles
+!ALE_v0.2/*/input/gis/basemaps/hong_kong_landsd.mbtiles
 
 # Editors and operating systems
 .DS_Store

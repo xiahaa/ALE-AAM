@@ -34,7 +34,7 @@ TASKS = {
         "title": "Hong Kong Southern Cross-sea Drone Logistics",
         "summary": "Plan and assess three low-altitude logistics routes across southern Hong Kong waters.",
         "source": "cross_sea_drone_logistics", "start": [114.12953776982366, 22.260497414234752],
-        "goal": [114.0312329722111, 22.208092486108427], "bounds": [114.018, 22.196, 114.142, 22.272],
+        "goal": [114.0286329722111, 22.208092486108427], "bounds": [114.018, 22.196, 114.142, 22.272],
         "environment": "southern_cross_sea", "c_objective": "wind_energy_optimized", "c_speed": 13.0,
         "special": ["water ditching", "marine rescue", "wind contingency"],
     },
@@ -51,9 +51,10 @@ TASKS = {
 OFFICIAL_SOURCES = [
     {"name": "LandsD 5 m DTM", "url": "https://data.gov.hk/en-data/dataset/hk-landsd-openmap-5m-grid-dtm", "status": "authoritative replacement source; not redistributed in this fixture"},
     {"name": "LandsD building data with height", "url": "https://data.gov.hk/en-data/dataset/hk-landsd-openmap-landsd-building", "status": "authoritative replacement source; not redistributed in this fixture"},
-    {"name": "CAD eSUA RFZ map", "url": "https://esua.cad.gov.hk/web/droneMap", "status": "fixed-date export required before benchmark publication"},
+    {"name": "CAD/eSUA RFZ fixed-date export", "url": "https://esua.cad.gov.hk/web/droneMap", "status": "user-provided 2026-07-24 snapshot; source redistribution terms must be confirmed before publication"},
     {"name": "HKO latest ten-minute wind", "url": "https://data.gov.hk/en-data/dataset/hk-hko-rss-latest-ten-minute-wind-info", "status": "authoritative replacement source"},
     {"name": "2021 Population Census", "url": "https://data.gov.hk/en-data/dataset/hk-censtatd-census_geo-2021-population-census-by-dcd", "status": "authoritative replacement source"},
+    {"name": "LandsD topographic map API", "url": "https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI", "status": "bounded scenario snapshot distributed as gis/basemaps/hong_kong_landsd.mbtiles"},
 ]
 
 
@@ -184,6 +185,9 @@ The staged `software/wheelhouse/` contains wheels. `start()` installs them into
 `software/.venv/bin/ale-aam-maptool doctor --json`, `inspect`, `plan-all`, `grid`,
 and `validate`. Do not use network access, sudo, apt, Homebrew, MSVC, or a source
 compiler. The web demo is `serve --scenario input/gis --host 127.0.0.1`.
+`input/gis/basemaps/hong_kong_landsd.mbtiles` is visual context only. Derive
+constraints and risk from the declared DEM, vector, population, and weather
+layers; do not treat cartographic basemap pixels as scoring truth.
 """
     return {"task_prompt.md":prompt,"output_contract.json":json.dumps(contract,indent=2),"routing_guidelines.md":routing,
             "risk_assessment_rubric.md":rubric,"emergency_planning_manual.md":emergency,"tool_usage.md":usage}
@@ -198,13 +202,13 @@ def build():
         for filename, content in documents(name, cfg).items():
             path = root / "input" / filename; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content.rstrip()+"\n", encoding="utf-8")
-        data_files = sorted(p for p in gis.iterdir() if p.is_file())
+        data_files = sorted(p for p in gis.rglob("*") if p.is_file())
         manifest = {"schema_version":"1.0","operational_use":False,"generated_by":"scripts/build_tasks.py",
                     "actual_derivation":"deterministic affine transform of ALE_v0.1 fixtures onto corrected Hong Kong mission footprint; not authoritative Hong Kong GIS",
                     "crs":"EPSG:4326 for vectors and fixture rasters; tool projects to local UTM with always_xy=True",
                     "conversion_steps":["affine coordinate transform","deterministic raster georeferencing","deterministic weather surface","SHA-256 inventory"],
                     "authoritative_replacement_sources":OFFICIAL_SOURCES,
-                    "files":[{"path":p.name,"sha256":sha(p)} for p in data_files]}
+                    "files":[{"path":p.relative_to(gis).as_posix(),"sha256":sha(p)} for p in data_files]}
         write_json(root / "input" / "source_manifest.json", manifest)
         anchors = {"schema_version":"2.0","route_geometry_reference":None,"tolerances":{"endpoint_m":3,"risk_raw":0.15,"arithmetic":0.01},
                    "risk_weights":{"collision":.30,"terrain":.10,"population":.20,"weather":.15,"noise":.10,"energy":.15},

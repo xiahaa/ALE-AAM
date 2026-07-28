@@ -13,11 +13,14 @@ The missions are benchmark simulations only. Their 150 m AGL envelope represents
 a hypothetical advanced-operations permission and is not a statement of general
 Hong Kong aviation law or authorization for real flight.
 
-Run `python scripts/build_tasks.py`, then `python scripts/refresh_official_sources.py`
-to regenerate the reviewed task bundle. The refresh step pins raw LandsD/HKO
-snapshots and hashes. It deliberately marks the eSUA layer as a publication
-blocker until a fixed licensed CAD export replaces its fixture. Run
-`pytest tests` for evaluator mutation tests.
+Run `python scripts/build_tasks.py`, `python scripts/refresh_official_sources.py`,
+and `python scripts/import_hk_airspace_snapshot.py` in that order to regenerate
+the reviewed task GIS. Build the bounded LandsD MBTiles with
+`../ale_aam_maptool/scripts/build_hk_landsd_basemap.py`, then run
+`python scripts/register_basemap_sources.py`. The supplied 2026-07-24 eSUA/RFZ
+archive is clipped into each case and hash-pinned; its redistribution terms
+remain an explicit publication blocker until confirmed. Run `pytest tests` for
+source, lifecycle, and evaluator mutation tests.
 
 After the Ubuntu/Python 3.12 wheelhouse has been built, run
 `python scripts/stage_release.py`. It produces the ALE-native split layout under

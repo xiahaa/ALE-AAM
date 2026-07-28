@@ -27,19 +27,38 @@ _ENV_KEYS = {
 _STYLE_PATTERN = re.compile(r"^[A-Za-z0-9_-]+/[A-Za-z0-9_-]+$")
 _MAX_TILE_BYTES = 5_000_000
 
+
+def _transparent_png() -> bytes:
+    output = io.BytesIO()
+    Image.new("RGBA", (256, 256), (0, 0, 0, 0)).save(output, format="PNG", optimize=True)
+    return output.getvalue()
+
+
+_EMPTY_TILE = _transparent_png()
+
 _PROVIDERS = (
     {
         "id": "offline",
         "name": "离线场景图层",
         "online": False,
         "attribution": "ALE-AAM 场景数据",
-        "max_zoom": 19,
+        "min_zoom": 0,
+        "max_zoom": 20,
+    },
+    {
+        "id": "hk-landsd-topographic",
+        "name": "香港地政总署地形图",
+        "online": True,
+        "attribution": "Map from Lands Department, HKSAR Government",
+        "min_zoom": 10,
+        "max_zoom": 20,
     },
     {
         "id": "tianditu-vector",
         "name": "天地图·矢量",
         "online": True,
         "attribution": "天地图",
+        "min_zoom": 1,
         "max_zoom": 18,
     },
     {
@@ -47,6 +66,7 @@ _PROVIDERS = (
         "name": "天地图·影像",
         "online": True,
         "attribution": "天地图",
+        "min_zoom": 1,
         "max_zoom": 18,
     },
     {
@@ -54,6 +74,7 @@ _PROVIDERS = (
         "name": "Mapbox·街道",
         "online": True,
         "attribution": "© Mapbox © OpenStreetMap",
+        "min_zoom": 0,
         "max_zoom": 19,
     },
     {
@@ -61,6 +82,7 @@ _PROVIDERS = (
         "name": "Mapbox·卫星",
         "online": True,
         "attribution": "© Mapbox",
+        "min_zoom": 0,
         "max_zoom": 19,
     },
 )
@@ -113,7 +135,7 @@ load_local_env()
 
 
 def _configured(provider_id: str) -> bool:
-    if provider_id == "offline":
+    if provider_id in {"offline", "hk-landsd-topographic"}:
         return True
     if provider_id.startswith("tianditu-"):
         return bool(os.environ.get("ALE_AAM_TIANDITU_TOKEN", "").strip())
@@ -128,7 +150,8 @@ def catalog(scenario_path: str | Path | None = None) -> dict:
     providers[1:1] = [public_pack(pack) for pack in packs]
     requested = os.environ.get("ALE_AAM_BASEMAP", "auto").strip()
     available_ids = {provider["id"] for provider in providers if provider["available"]}
-    fallback = packs[0]["id"] if packs else "offline"
+    preferred = next((pack for pack in packs if pack["id"] == "offline-hong-kong-landsd"), None)
+    fallback = preferred["id"] if preferred else (packs[0]["id"] if packs else "offline")
     return {"default": requested if requested in available_ids else fallback, "providers": providers}
 
 
@@ -143,11 +166,14 @@ def _download_tile(url: str) -> tuple[bytes, str]:
             "Referer": "http://127.0.0.1/",
         })
         with urlopen(request, timeout=12) as response:
+            status = int(getattr(response, "status", 200))
             payload = response.read(_MAX_TILE_BYTES + 1)
             content_type = response.headers.get_content_type()
     except Exception:
         raise BasemapUnavailable("upstream basemap request failed") from None
-    if len(payload) > _MAX_TILE_BYTES or not content_type.startswith("image/"):
+    if status == 204:
+        return _EMPTY_TILE, "image/png"
+    if len(payload) > _MAX_TILE_BYTES or not payload or not content_type.startswith("image/"):
         raise BasemapUnavailable("upstream basemap returned an invalid image")
     return payload, content_type
 
@@ -169,6 +195,14 @@ def _mapbox_url(style: str, z: int, x: int, y: int) -> str:
     return (
         "https://api.mapbox.com/styles/v1/"
         f"{quote(owner, safe='')}/{quote(style_id, safe='')}/tiles/256/{z}/{x}/{y}?{token}"
+    )
+
+
+def _landsd_url(z: int, x: int, y: int) -> str:
+    """Return the fixed, key-free LandsD WGS84 topographic tile endpoint."""
+    return (
+        "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/"
+        f"basemap/WGS84/{z}/{x}/{y}.png"
     )
 
 
@@ -202,6 +236,8 @@ def tile(provider_id: str, z: int, x: int, y: int,
             raise BasemapUnavailable(str(exc)) from None
     if not _configured(provider_id):
         raise BasemapUnavailable("basemap provider is not configured")
+    if provider_id == "hk-landsd-topographic":
+        return _download_tile(_landsd_url(z, x, y))
     if provider_id == "tianditu-vector":
         return _compose_tianditu("vec_w", "cva_w", z, x, y)
     if provider_id == "tianditu-imagery":

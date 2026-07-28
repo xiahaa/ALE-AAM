@@ -4,8 +4,12 @@ Standalone repository for the ALE-AAM low-altitude logistics agent benchmark.
 It contains the public cross-platform planning tool and the ALE v0.2 task
 packages, without the surrounding jps3d repository.
 
-Each ALE v0.2 case includes a tiny scenario-local MBTiles example so the Web UI
-has a useful visual background without network access or provider credentials.
+Each ALE v0.2 case includes a bounded z12-z17 snapshot from the official Hong
+Kong Lands Department topographic map API, so the Web UI has a high-resolution
+Hong Kong background without network access or provider credentials.
+The tiles are visual context only: planning and evaluation continue to use the
+distributed 5 m DTM and structured building, airspace, population, weather, and
+emergency-site layers.
 
 This repository is for benchmark simulation, evaluation, and demonstrations.
 It is not a real-flight authorization, dispatch, or aviation-safety system.
@@ -48,7 +52,7 @@ tests CPython 3.10-3.13 wheels for:
 - macOS Apple Silicon arm64
 
 The combined Mac artifact is named
-`ale-aam-maptool-0.2.0-macos-wheels`. Release wheels and wheelhouses are GitHub
+`ale-aam-maptool-0.2.1-macos-wheels`. Release wheels and wheelhouses are GitHub
 Actions artifacts and are not committed to Git.
 
 ## Local use
@@ -75,10 +79,11 @@ The offline-first Web interface follows one primary workflow: load scenario/loca
 data, inspect environment layers, draw or edit waypoints, and export one GeoJSON
 `LineString`. Start it with `serve`, open the printed local URL, and optionally
 load [`data/hong_kong_airspace_20260724.zip`](data/hong_kong_airspace_20260724.zip)
-directly in the browser. Scenario layers work without OSM, a CDN, or any external
-request. Local development and demonstrations may optionally enable TianDiTu or
-Mapbox through the credential-hiding server proxy described in the usage guide;
-formal ALE task execution remains offline.
+directly in the browser. The shipped LandsD snapshot and scenario layers work
+without OSM, a CDN, or any external request. Buildings, airspace and emergency
+sites remain true vector overlays at every zoom level. Local demonstrations may
+also use the key-free live LandsD map or enable TianDiTu/Mapbox through the
+credential-hiding proxy; formal ALE task execution remains offline.
 
 See [`ale_aam_maptool/USAGE.zh.md`](ale_aam_maptool/USAGE.zh.md) for platform wheel
 selection, CLI/API usage, six ALE artifacts, task release staging, and
@@ -115,6 +120,6 @@ agent has finished, before `evaluate()` runs.
 - Third-party notices: [`ale_aam_maptool/THIRD_PARTY_NOTICES.md`](ale_aam_maptool/THIRD_PARTY_NOTICES.md)
 - Scenario sources and hashes: each task's `input/source_manifest.json`
 
-The eSUA/RFZ fixed official snapshot remains a publication blocker until its
-fixture is replaced with a licensed, date-pinned CAD export and the manifest
-hashes are refreshed.
+The supplied 2026-07-24 eSUA/RFZ export is now clipped into all three cases and
+hash-pinned. Before public benchmark publication, the team must still confirm
+the source redistribution terms recorded in each manifest.

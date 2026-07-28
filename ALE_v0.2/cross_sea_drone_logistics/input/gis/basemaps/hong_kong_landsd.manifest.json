@@ -1,0 +1,47 @@
+{
+  "acquisition_date_utc": "2026-07-28T00:00:00Z",
+  "attribution": "Map from Lands Department, HKSAR Government",
+  "bounds": [
+    114.00321205,
+    22.18543001,
+    114.15642324,
+    22.28272409
+  ],
+  "empty_tile_count": 0,
+  "generation": {
+    "coordinate_order": "[longitude, latitude]",
+    "empty_response_policy": "transparent PNG tile",
+    "padding_fraction": 0.1,
+    "request_interval_seconds": 0.1,
+    "requests": "serial, rate-limited, cached, bounded retry",
+    "tile_order": "zoom, x, y ascending"
+  },
+  "kind": "hong-kong-landsd-topographic-snapshot",
+  "max_zoom": 17,
+  "min_zoom": 12,
+  "network_tile_count": 1104,
+  "pack": "hong_kong_landsd.mbtiles",
+  "scenario_sources": [
+    {
+      "path": "task.json",
+      "sha256": "a87c4747f7fc5ba1c452e569f66b6b938c22b6802e5cdaf48e002f55b3379d43"
+    },
+    {
+      "path": "dem.tif",
+      "sha256": "c72944ca860ec462029e88ad4e2e956e7348271cf84520a95bdb7280e3d63d6b"
+    }
+  ],
+  "schema_version": "1.0",
+  "sha256": "4485dcaba6ffcdc3f03d31ff607af5bdbf172b4dc27461919bd7844a321da35d",
+  "size_bytes": 11157504,
+  "source": {
+    "api_documentation": "https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI",
+    "api_template": "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/basemap/WGS84/{z}/{x}/{y}.png",
+    "crs": "EPSG:3857 XYZ tiles requested through the LandsD WGS84 endpoint",
+    "dataset": "https://data.gov.hk/en-data/dataset/hk-landsd-openmap-development-hkms-digital-b1k",
+    "license": "DATA.GOV.HK Terms and Conditions",
+    "terms": "https://data.gov.hk/en/terms-and-conditions"
+  },
+  "source_tile_count": 3038,
+  "tile_count": 3038
+}

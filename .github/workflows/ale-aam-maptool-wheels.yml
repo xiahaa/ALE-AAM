@@ -3,10 +3,19 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ["ale_aam_maptool/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
+    paths: ["ale_aam_maptool/**", "ALE_v0.2/**", "data/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
   pull_request:
-    paths: ["ale_aam_maptool/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
+    paths: ["ale_aam_maptool/**", "ALE_v0.2/**", "data/**", ".github/workflows/ale-aam-maptool-wheels.yml"]
 jobs:
+  repository-tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python -m pip install "./ale_aam_maptool[test]"
+      - run: node --check ale_aam_maptool/ale_aam_maptool/web/app.js
+      - run: python -m pytest ale_aam_maptool/tests ALE_v0.2/tests
   wheels:
     runs-on: ${{ matrix.os }}
     strategy:
@@ -51,7 +60,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          wheels = sorted(Path("macos-wheels").glob("ale_aam_maptool-0.2.0-*.whl"))
+          wheels = sorted(Path("macos-wheels").glob("ale_aam_maptool-0.2.1-*.whl"))
           names = [wheel.name for wheel in wheels]
           missing = []
           for version in ("310", "311", "312", "313"):
@@ -69,7 +78,7 @@ jobs:
           print("\n".join(names))
       - uses: actions/upload-artifact@v4
         with:
-          name: ale-aam-maptool-0.2.0-macos-wheels
+          name: ale-aam-maptool-0.2.1-macos-wheels
           path: macos-wheels/*.whl
           if-no-files-found: error
           retention-days: 30

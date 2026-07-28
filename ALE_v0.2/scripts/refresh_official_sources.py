@@ -2,8 +2,9 @@
 
 Network is used only by this authoring script, never by an ALE agent. Raw API
 responses are stored under each task's ``input/source_snapshots`` and subsequent
-runs reuse them unless ``--refresh`` is passed. Population and eSUA RFZ remain
-explicitly marked pending until independently licensed exports are supplied.
+runs reuse them unless ``--refresh`` is passed. Run
+``import_hk_airspace_snapshot.py`` afterwards to restore the hash-pinned RFZ
+clip; its redistribution terms remain explicitly pending.
 """
 from __future__ import annotations
 
@@ -148,7 +149,7 @@ def write_weather(dtm_path,csv_path,target):
 
 def update_manifest(task,dtm_archive,building_raw,wind_raw,census_raw,weather_meta):
     manifest_path=task/"input/source_manifest.json"; manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
-    manifest["actual_derivation"]="LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ remains a non-operational fixture pending a fixed licensed CAD export"
+    manifest["actual_derivation"]="LandsD 5 m DTM crop, building-height API snapshot, bounded topographic-map snapshot, fixed-date user-provided RFZ snapshot, 2021 Census STPU density raster, and HKO wind snapshot"
     manifest["acquisition_date_utc"]="2026-07-24"
     manifest["crs"]="EPSG:4326 for vectors; EPSG:2326 for authoritative rasters; the tool reprojects with always_xy=True to the mission's local UTM zone"
     manifest["conversion_steps"]=[
@@ -157,24 +158,38 @@ def update_manifest(task,dtm_archive,building_raw,wind_raw,census_raw,weather_me
         "rasterize 2021 Census STPU persons per square kilometre onto the DTM grid",
         "write the observed HKO station-mean wind speed onto the DTM grid without invented station coordinates",
         "record raw snapshots and SHA-256 for every distributed GIS file",
+        "download a bounded, rate-limited LandsD topographic XYZ snapshot for offline visualization",
     ]
     manifest["generated_by"]="scripts/build_tasks.py + scripts/refresh_official_sources.py"
     manifest.pop("authoritative_replacement_sources",None)
     manifest["authoritative_sources"]=[
         {"name":"LandsD 5 m DTM","url":"https://data.gov.hk/en-data/dataset/hk-landsd-openmap-5m-grid-dtm","status":"authoritative snapshot crop distributed as gis/dem.tif"},
         {"name":"LandsD building data with height","url":"https://data.gov.hk/en-data/dataset/hk-landsd-openmap-landsd-building","status":"authoritative API snapshot distributed as gis/buildings_3d.geojson"},
-        {"name":"CAD eSUA RFZ map","url":"https://esua.cad.gov.hk/web/droneMap","status":"fixed-date export required before benchmark publication"},
+        {"name":"CAD/eSUA RFZ fixed-date export","url":"https://esua.cad.gov.hk/web/droneMap","status":"user-provided 2026-07-24 snapshot; source redistribution terms must be confirmed before publication"},
         {"name":"HKO latest ten-minute wind","url":"https://data.gov.hk/en-data/dataset/hk-hko-rss-latest-ten-minute-wind-info","status":"observed snapshot distributed through gis/weather_grid.tif"},
         {"name":"2021 Population Census","url":"https://data.gov.hk/en-data/dataset/hk-censtatd-census_geo-2021-population-census-by-dcd","status":"authoritative STPU snapshot distributed through gis/population_density.tif"},
+        {"name":"LandsD topographic map API","url":"https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI","status":"bounded z12-z17 snapshot distributed through gis/basemaps/hong_kong_landsd.mbtiles"},
     ]
     manifest["layer_provenance"]={
         "dem.tif":{"source":DTM_URL,"source_sha256":digest(dtm_archive),"license":"DATA.GOV.HK terms","crs":"EPSG:2326","status":"authoritative snapshot crop"},
         "buildings_3d.geojson":{"source":BUILDING_QUERY,"raw_sha256":digest(building_raw),"license":"DATA.GOV.HK terms","crs":"EPSG:4326","status":"authoritative API snapshot"},
         "weather_grid.tif":{"source":HKO_WIND,"raw_sha256":digest(wind_raw),"license":"HKO open data terms","crs":"EPSG:2326","details":weather_meta,"status":"observed snapshot; mean station wind raster"},
-        "airspace_zones.geojson":{"status":"benchmark fixture; MUST be replaced by a fixed-date CAD eSUA RFZ export before publication"},
+        "airspace_zones.geojson":{"source":"data/hong_kong_airspace_20260724.zip","source_url":"https://esua.cad.gov.hk/web/droneMap","source_sha256":"b0cde3a908091359c1e10190d185ad74c60511cd943e5498b3c8bdd6b6f16614","snapshot_date":"2026-07-24","crs":"EPSG:4326","license":"Source redistribution terms must be confirmed before benchmark publication","status":"fixed-date user-provided RFZ snapshot; license verification remains a publication blocker"},
         "population_density.tif":{"source":CENSUS_QUERY,"raw_sha256":digest(census_raw),"license":"DATA.GOV.HK terms","crs":"EPSG:2326","status":"2021 Census STPU population per square kilometre"},
     }
-    gis=task/"input/gis"; manifest["files"]=[{"path":p.name,"sha256":digest(p)} for p in sorted(gis.iterdir()) if p.is_file()]
+    gis=task/"input/gis"
+    basemap_manifest=gis/"basemaps/hong_kong_landsd.manifest.json"
+    if basemap_manifest.is_file():
+        basemap=json.loads(basemap_manifest.read_text(encoding="utf-8"))
+        manifest["layer_provenance"]["basemaps/hong_kong_landsd.mbtiles"]={
+            "source":basemap["source"]["api_documentation"],
+            "license":basemap["source"]["license"],
+            "crs":basemap["source"]["crs"],
+            "acquisition_date_utc":basemap["acquisition_date_utc"],
+            "zoom":[basemap["min_zoom"],basemap["max_zoom"]],
+            "status":"authoritative bounded offline visualization snapshot",
+        }
+    manifest["files"]=[{"path":p.relative_to(gis).as_posix(),"sha256":digest(p)} for p in sorted(gis.rglob("*")) if p.is_file()]
     manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
 
 

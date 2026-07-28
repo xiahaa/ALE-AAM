@@ -1,4 +1,4 @@
-# ale-aam-maptool 0.2.0 与 ALE v0.2 详细使用手册
+# ale-aam-maptool 0.2.1 与 ALE v0.2 详细使用手册
 
 本文面向三类读者：
 
@@ -12,13 +12,13 @@
 
 ## 1. 功能与版本
 
-`ale-aam-maptool 0.2.0` 提供以下功能：
+`ale-aam-maptool 0.2.1` 提供以下功能：
 
 - 读取 DEM、三维建筑物、限制空域、人口、天气和应急点 GIS 图层。
 - 使用原生 JPS 后端生成 A、B、C 三种低空路线。
 - 导出带 AGL、MSL 高度及速度等属性的 GeoJSON。
 - 检查场景、预览规划栅格、校验公开输出格式和显式硬约束。
-- 提供稳定 CLI、版本化 HTTP API 和离线优先的 Web 界面；本地开发/演示可选天地图或 Mapbox 底图。
+- 提供稳定 CLI、版本化 HTTP API 和离线优先的 Web 界面；香港场景可直接使用官方地政总署在线或离线底图，本地演示也可选天地图/Mapbox。
 - Web 界面按“加载数据 → 查看环境 → 交互式画航线 → 导出 GeoJSON”工作，支持直接读取本地 GeoJSON 和包含未压缩 GeoJSON 的 ZIP。
 - 使用平台 wheel 安装，普通用户不需要 C++ 编译器、MSVC、Homebrew、apt、sudo。
 
@@ -51,11 +51,13 @@ Windows 使用：
 在浏览器打开 `http://127.0.0.1:8000` 后：
 
 1. **加载数据**：页面自动显示场景声明的 DEM、3D 建筑、空域、气象、人口和应急点图层。每层可独立显示或隐藏。也可以选择本地 `.geojson`、`.json`，或包含 Store 模式 `.geojson` 的 `.zip`；文件只在浏览器内解析。
-2. **查看环境**：用滚轮缩放，切换到“平移”后拖动地图；输入经纬度可定位。处于“查看”模式时点击地图，可读取该位置的地形高程、气象值、人口密度以及命中的建筑、空域和应急点属性。
+2. **查看环境**：用滚轮缩放、拖动地图平移；输入经纬度可定位。“查看”按钮位于本区，启用后点击地图可读取该位置的地形高程、气象值、人口密度以及命中的建筑、空域和应急点属性。
 3. **绘制航线**：页面先放入任务起点和终点。切换到“画航点”，点击地图添加中间航点；拖动圆点调整位置，在航点列表中设置 AGL 高度和速度，或删除航点。
 4. **导出**：点击“导出 GeoJSON”，得到 `ale-aam-route.geojson`。几何类型为 `Feature/LineString`，坐标固定为 `[longitude, latitude]`，每个航点包含高度、速度，并在 DEM 有值时包含 `altitude_m_msl`。
 
-Web 地图默认使用场景自身的数据渲染，不依赖 OSM、在线瓦片或 CDN，因此大陆网络、内网和断网环境下仍能显示。开发或演示时可按下一节启用天地图或 Mapbox；任何在线服务不可用时会自动回退到离线图层。仓库 `data/hong_kong_airspace_20260724.zip` 可直接作为本地空域叠加层加载。
+Web 地图默认选择场景自带的香港地政总署 z12-z17 离线快照，不依赖 OSM、在线瓦片或 CDN，因此大陆网络、内网和断网环境下仍能显示。建筑、空域和应急点以原始 GeoJSON 矢量绘制，放大时不会像预览图片一样失真；航点和文字保持固定像素大小。在线时还可选择免密钥的地政总署实时地形图，或按下一节启用天地图/Mapbox。仓库 `data/hong_kong_airspace_20260724.zip` 可直接作为本地空域叠加层加载。
+
+离线地形瓦片只提供人类可读的视觉背景，不作为规划或隐藏评分输入。任务难度来自同场景的 5 m DTM、数千个带高度建筑物、空域、人口、气象和应急点等结构化 GIS；agent 与 evaluator 使用这些可重算图层，而不是从底图像素猜测约束。这样既提高人工验收的地图精度，也不会把底图供应商的制图细节误当作评分真值。
 
 ### 1.2 可选在线底图与密钥保密
 
@@ -91,7 +93,8 @@ ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
 |---|---|
 | `auto` | 优先使用当前场景的离线 MBTiles；不存在时使用场景图层 |
 | `offline` | 离线场景图层，正式 ALE 和断网环境使用 |
-| `offline-example` | 场景目录自带的 MBTiles 最小示例；无网络、无密钥 |
+| `offline-hong-kong-landsd` | ALE 香港场景自带的地政总署 z12-z17 离线快照；无网络、无密钥 |
+| `hk-landsd-topographic` | 香港地政总署实时地形图；免密钥，需联网 |
 | `tianditu-vector` | 天地图矢量底图与注记 |
 | `tianditu-imagery` | 天地图影像底图与注记 |
 | `mapbox-streets` | Mapbox 街道样式；可用 `ALE_AAM_MAPBOX_STYLE` 换成有权限的样式 |
@@ -100,28 +103,31 @@ ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
 重新启动 `serve` 后，页面“底图”列表只允许选择已经配置的服务。服务器使用固定白名单地址代理瓦片，浏览器只看到同源的 `/v1/basemaps/...` 地址，不会得到密钥；元数据接口、错误信息和日志也不返回密钥。`.gitignore` 已忽略 `.env`、`.env.local` 和 `*.secret.env`，仓库只提交空值的 `.env.example`。
 
 场景目录下的 `basemaps/*.mbtiles` 会被自动发现。仓库内三个 ALE v0.2
-场景各带一个 `z12-z14` 最小示例，由场景已有 DEM 和建筑物确定性渲染，生成
-过程不会访问天地图、Mapbox 或其他瓦片服务。检查示例：
+场景各带一个香港地政总署 `z12-z17` 范围快照；z17 在香港约为 1.1 m/像素。
+相邻的 manifest 记录官方来源、DATA.GOV.HK 条款、署名、获取时间、覆盖范围、
+瓦片数量和 SHA-256。运行期读取离线包不会访问任何瓦片服务。检查快照：
 
 ```powershell
 .\run.cmd basemap inspect --scenario ..\ALE_v0.2\urban_drone_logistics\input\gis
-.\run.cmd basemap verify --pack ..\ALE_v0.2\urban_drone_logistics\input\gis\basemaps\example.mbtiles
+.\run.cmd basemap verify --pack ..\ALE_v0.2\urban_drone_logistics\input\gis\basemaps\hong_kong_landsd.mbtiles
 ```
 
 ```bash
 sh run.sh basemap inspect --scenario ../ALE_v0.2/urban_drone_logistics/input/gis
-sh run.sh basemap verify --pack ../ALE_v0.2/urban_drone_logistics/input/gis/basemaps/example.mbtiles
+sh run.sh basemap verify --pack ../ALE_v0.2/urban_drone_logistics/input/gis/basemaps/hong_kong_landsd.mbtiles
 ```
 
-重新生成一个最小示例：
+维护者重新获取一个有界官方快照（串行限速、使用本地缓存、无需密钥）：
 
 ```bash
-python scripts/create_example_basemap.py \
+python scripts/build_hk_landsd_basemap.py \
   --scenario ../ALE_v0.2/urban_drone_logistics/input/gis \
   --min-zoom 12 --max-zoom 14
 ```
 
-大型正式 MBTiles 不应提交 Git，应放在 Release 或离线交付包中。
+正式默认使用 `--max-zoom 17`；上面的 14 仅用于快速试跑。脚本默认每次请求至少间隔
+0.2 秒，并将缓存放在 `.cache/hk-landsd-tiles`。不要用并发爬取或把间隔调到 0.1 秒以下。
+任意大范围 MBTiles 不应提交 Git，应放在 Release 或受控离线交付包中。
 
 这仍不等于供应商密钥可以不受约束地共享。请在天地图/Mapbox 管理后台限制允许来源、URL 或使用范围，按团队制度轮换和撤销；给同事分发真实 `.env` 时使用组织认可的密码管理器或加密通道。
 
@@ -198,7 +204,7 @@ wheel 文件名中的 `cp310`、`cp311`、`cp312`、`cp313` 分别对应 Python 
 - 完全离线包：把 `ale_aam_maptool` 和所有依赖 wheel 放在 `wheelhouse/`。安装脚本使用 `--no-index`，不会访问 PyPI。
 - 普通发布包：把与当前平台匹配的 `ale_aam_maptool` wheel 放在 `dist/` 或 `dist/` 的一级子目录。安装器可从 PyPI 获取声明的 Python 依赖。
 
-正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.2.0` wheel 及所有依赖。
+正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.2.1` wheel 及所有依赖。
 
 ## 4. 三平台安装
 
@@ -257,7 +263,7 @@ sh run.sh doctor --json
 Intel Python、Rosetta x86_64 Python 和 arm64 Python 不能混用 wheel。遇到 `incompatible architecture` 时，应更换 Python 或 wheel，不要尝试在用户机器上编译原生扩展。
 
 正式 wheel 由 GitHub Actions 的 `ale-aam-maptool cross-platform wheels`
-工作流生成。下载名为 `ale-aam-maptool-0.2.0-macos-wheels` 的 artifact，解压后根据
+工作流生成。下载名为 `ale-aam-maptool-0.2.1-macos-wheels` 的 artifact，解压后根据
 Python 和架构选择一个 wheel：
 
 ```text
@@ -274,7 +280,7 @@ Python 3.13 + Apple Silicon cp313-...-arm64.whl
 将匹配的 wheel 放到对应目录，例如：
 
 ```text
-dist/macos-arm64/ale_aam_maptool-0.2.0-cp312-...-arm64.whl
+dist/macos-arm64/ale_aam_maptool-0.2.1-cp312-...-arm64.whl
 ```
 
 然后运行：
@@ -320,7 +326,7 @@ sh run.sh doctor --json
   "offline_web": true,
   "ok": true,
   "python_supported": true,
-  "version": "0.2.0"
+  "version": "0.2.1"
 }
 ```
 
@@ -792,14 +798,15 @@ http://127.0.0.1:8000/
 
 Web 界面可以：
 
-- 显示绑定场景信息和离线规划栅格。
-- 单独规划 A、B 或 C。
-- 同时规划三条路线并叠加显示。
-- 导出当前浏览器中的路线为 `routes.geojson` FeatureCollection。
+- 显示 z12-z17 香港官方离线底图以及绑定场景的 DEM、建筑、空域、气象、人口和应急点。
+- 保持建筑、空域、应急点为矢量图形，并在所有缩放级别保持航点、文字和线宽的可读尺寸。
+- 点击地图或输入经纬度查看环境属性；在浏览器内导入 GeoJSON/未压缩 GeoJSON ZIP。
+- 交互式添加、拖动、删除航点，设置 AGL 高度和速度。
+- 导出当前人工航线为 `ale-aam-route.geojson` GeoJSON `Feature/LineString`。
 
-Web 导出的 FeatureCollection 主要用于查看和演示，不等同于 ALE 要求的六份独立交付物。正式任务仍应使用 CLI 生成 `route_a.geojson`、`route_b.geojson`、`route_c.geojson`。
+Web 导出的人工 LineString 主要用于查看、标注和演示，不等同于 ALE 要求的六份独立交付物。正式任务仍应使用 CLI 生成 `route_a.geojson`、`route_b.geojson`、`route_c.geojson`。
 
-页面资源、字体、样式和脚本均来自本地，不使用 CDN 或追踪服务。默认背景栅格来自绑定场景；启用天地图/Mapbox 时，只有后端瓦片代理访问供应商，浏览器不会接收供应商密钥。服务只能访问启动时绑定的场景，不接受网页传入任意服务器目录。在线底图失败时页面自动回退到离线场景图层。
+Leaflet、页面资源、字体、样式、脚本和默认地政总署快照均来自本地，不使用 CDN 或追踪服务。选择实时地政总署/天地图/Mapbox 时，只有后端瓦片代理访问供应商，浏览器不会接收供应商密钥。服务只能访问启动时绑定的场景，不接受网页传入任意服务器目录。在线底图失败时页面自动回退到离线场景图层。
 
 ## 12. HTTP API
 
@@ -810,6 +817,10 @@ Web 导出的 FeatureCollection 主要用于查看和演示，不等同于 ALE �
 | GET | `/v1/health` | 无 | 服务版本及场景绑定状态 |
 | GET | `/v1/scenario` | 无 | 场景、范围、栅格、策略摘要 |
 | GET | `/v1/preview?route=A` | 查询参数 A/B/C | PNG 规划栅格 |
+| GET | `/v1/layers` | 无 | 绑定场景可视化图层目录 |
+| GET | `/v1/layers/{layer_id}` | 固定图层 ID | 建筑、空域或应急点的原始 GeoJSON；不接受文件路径 |
+| GET | `/v1/layers/{layer_id}/preview` | 固定图层 ID | 栅格图层的透明 PNG 预览 |
+| GET | `/v1/environment?lon=...&lat=...` | 绑定场景内经纬度 | 该点栅格值与命中的矢量属性 |
 | GET | `/v1/basemaps` | 无 | 可用底图、默认值、显示名称和署名；不含密钥 |
 | GET | `/v1/basemaps/{provider}/{z}/{x}/{y}.png` | 白名单 provider 与有效瓦片坐标 | 同源代理瓦片；不可用时返回通用错误 |
 | POST | `/v1/plan` | `{"route":"A","densify_interval_m":200}` | 单条 Feature 与指标 |
@@ -891,6 +902,13 @@ transport_safety/emergency_blood_transport
 ```bash
 python scripts/build_tasks.py
 python scripts/refresh_official_sources.py
+python scripts/import_hk_airspace_snapshot.py
+python ../ale_aam_maptool/scripts/build_hk_landsd_basemap.py \
+  --scenario urban_drone_logistics/input/gis \
+  --scenario cross_sea_drone_logistics/input/gis \
+  --scenario emergency_blood_transport/input/gis \
+  --min-zoom 12 --max-zoom 17
+python scripts/register_basemap_sources.py
 python -m pytest tests
 ```
 
@@ -898,7 +916,9 @@ python -m pytest tests
 
 - `build_tasks.py` 确定性重建三场景及任务文件。
 - `refresh_official_sources.py` 用于维护者刷新固定日期的官方数据快照，需要网络，只能在任务发布前执行，不能在 agent 运行期间执行。
-- 在以固定、许可明确的民航处 eSUA/CAD 导出替换当前 RFZ fixture 并更新 SHA-256 前，任务仍应视为有发布阻断项。
+- `import_hk_airspace_snapshot.py` 校验仓库中 2026-07-24 RFZ ZIP 的固定 SHA-256，修复拓扑并按三个 DEM 范围裁剪；跨海任务原终点位于 Cheung Chau Helipad RFZ 内，脚本将其移动约 268 m 到已核验的区外点。
+- `build_hk_landsd_basemap.py` 串行限速生成官方香港离线地形包；`register_basemap_sources.py` 把包的来源、许可状态、范围和 SHA-256 登记回场景 manifest。
+- 已提供的 2026-07-24 eSUA/RFZ 压缩包已按三个 DEM 范围裁剪并固定 SHA-256；公开发布前仍必须确认源数据的再分发条款，manifest 将其明确标为阻断项。
 - 所有来源、许可、获取日期、CRS、转换步骤和 SHA-256 应在 `source_manifest.json` 中可核验。
 
 ### 13.4 制作 ALE 发布目录
@@ -1129,7 +1149,7 @@ python -m pytest tests
 - 缺文件、坏 GeoJSON、RFZ 穿越、净空不足、风险表造假、最终路线不一致和缺少场景应急内容只降低对应分项。
 - 人工核验 reference 得分为 1.0。
 - 至少使用一个中等能力 agent 做三轮难度和泄漏检查。
-- 发布前解决 RFZ 官方快照的 publication blocker。
+- 发布前确认已固定 RFZ 快照的源数据再分发条款，解决对应 publication blocker。
 - 不修改或覆盖 `ALE_v0.1`。
 
 ## 16. 许可证与数据来源

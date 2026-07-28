@@ -13,5 +13,5 @@ Quick start (Python):
 from .scenario import Scenario, PlanResult
 from .planner import plan_route, plan_all_routes
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 __all__ = ["Scenario", "PlanResult", "plan_route", "plan_all_routes", "__version__"]

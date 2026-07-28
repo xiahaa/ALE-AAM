@@ -4,6 +4,7 @@ import io
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ from .validator import validate_feature
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
 app = FastAPI(title="ale-aam-maptool", version=__version__)
+app.add_middleware(GZipMiddleware, minimum_size=1_000, compresslevel=6)
 _scenario: Scenario | None = None
 
 
@@ -91,6 +93,14 @@ def layer_preview(layer_id: str):
                     headers={"Cache-Control": "public, max-age=3600"})
 
 
+@app.get("/v1/layers/{layer_id}")
+def vector_layer(layer_id: str):
+    try:
+        return _bound().vector_layer(layer_id)
+    except KeyError as exc:
+        raise HTTPException(404, f"unknown vector layer: {layer_id}") from exc
+
+
 @app.get("/v1/environment")
 def environment(lon: float, lat: float):
     try:
@@ -110,7 +120,9 @@ def basemap(provider_id: str, z: int, x: int, y: int):
     definition = basemap_provider(provider_id, sc.path)
     if definition is None or provider_id == "offline" or not definition["available"]:
         raise HTTPException(404, "basemap provider unavailable")
-    limit = 1 << z if 0 <= z <= int(definition["max_zoom"]) else 0
+    minimum = int(definition.get("min_zoom", 0))
+    maximum = int(definition["max_zoom"])
+    limit = 1 << z if minimum <= z <= maximum else 0
     if not limit or not (0 <= x < limit and 0 <= y < limit):
         raise HTTPException(422, "invalid basemap tile coordinate")
     try:

@@ -14,4 +14,8 @@ try:
             assert json.load(urlopen("http://127.0.0.1:8765/v1/health"))["status"] == "ok"; break
         except Exception: time.sleep(.25)
     else: raise RuntimeError("health check timed out")
+    layer = json.load(urlopen("http://127.0.0.1:8765/v1/layers/airspace"))
+    assert layer["type"] == "FeatureCollection"
+    leaflet = urlopen("http://127.0.0.1:8765/vendor/leaflet/leaflet.js").read()
+    assert len(leaflet) > 100_000 and b"Leaflet" in leaflet[:1000]
 finally: process.terminate(); process.wait(timeout=10)

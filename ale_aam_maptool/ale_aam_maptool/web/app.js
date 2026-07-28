@@ -1,35 +1,34 @@
 const $ = id => document.getElementById(id);
-const SVG_NS = 'http://www.w3.org/2000/svg';
+
 const state = {
+  map: null,
   scenario: null,
-  world: {width: 1000, height: 700},
-  fullView: {x: 0, y: 0, width: 1000, height: 700},
-  view: {x: 0, y: 0, width: 1000, height: 700},
+  scenarioBounds: null,
+  vectorRenderer: null,
+  basemaps: [],
+  basemap: 'offline',
+  basemapLayer: null,
+  basemapFailures: 0,
+  layerControls: new Map(),
+  demWasVisible: true,
   mode: 'inspect',
   waypoints: [],
   selectedWaypoint: null,
+  waypointMarkers: [],
+  routeLayer: null,
+  locationMarker: null,
   localLayers: [],
-  pointer: null,
-  draggingWaypoint: null,
-  basemaps: [],
-  basemap: 'offline',
-  basemapGeneration: 0,
-  basemapTimer: null,
-  layerControls: new Map(),
-  demWasVisible: true,
 };
 
 async function request(url, options) {
   const response = await fetch(url, options);
-  const data = await response.json();
-  if (!response.ok) throw new Error(data.detail || response.statusText);
+  const contentType = response.headers.get('content-type') || '';
+  const data = contentType.includes('json') ? await response.json() : await response.text();
+  if (!response.ok) {
+    const detail = typeof data === 'object' && data ? data.detail : data;
+    throw new Error(detail || response.statusText);
+  }
   return data;
-}
-
-function svgElement(name, attributes = {}) {
-  const node = document.createElementNS(SVG_NS, name);
-  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
-  return node;
 }
 
 function setStatus(message, isError = false) {
@@ -37,145 +36,168 @@ function setStatus(message, isError = false) {
   $('status').style.color = isError ? '#fca5a5' : '';
 }
 
-function toWorld(coordinate) {
-  const e = state.scenario.extent;
-  return {
-    x: (coordinate[0] - e.west) / (e.east - e.west) * state.world.width,
-    y: (e.north - coordinate[1]) / (e.north - e.south) * state.world.height,
-  };
+function toLatLng(coordinate) {
+  return [Number(coordinate[1]), Number(coordinate[0])];
 }
 
-function toLonLat(point) {
-  const e = state.scenario.extent;
-  return [
-    e.west + point.x / state.world.width * (e.east - e.west),
-    e.north - point.y / state.world.height * (e.north - e.south),
-  ];
+function toCoordinate(latlng) {
+  return [Number(latlng.lng), Number(latlng.lat)];
 }
 
-function clientToWorld(event) {
-  const rect = $('map').getBoundingClientRect();
-  return {
-    x: state.view.x + (event.clientX - rect.left) / rect.width * state.view.width,
-    y: state.view.y + (event.clientY - rect.top) / rect.height * state.view.height,
-  };
-}
-
-function applyView() {
-  $('map').setAttribute('viewBox', `${state.view.x} ${state.view.y} ${state.view.width} ${state.view.height}`);
-  scheduleBasemapRender();
+function scenarioLeafletBounds() {
+  const extent = state.scenario.extent;
+  return L.latLngBounds([extent.south, extent.west], [extent.north, extent.east]);
 }
 
 function resetView() {
-  state.view = {...state.fullView};
-  applyView();
-}
-
-function zoom(factor, anchor) {
-  const minWidth = state.fullView.width / 40;
-  const maxWidth = state.fullView.width * 1.2;
-  const nextWidth = Math.max(minWidth, Math.min(maxWidth, state.view.width * factor));
-  const scale = nextWidth / state.view.width;
-  const nextHeight = state.view.height * scale;
-  const point = anchor || {x: state.view.x + state.view.width / 2, y: state.view.y + state.view.height / 2};
-  state.view = {
-    x: point.x - (point.x - state.view.x) * scale,
-    y: point.y - (point.y - state.view.y) * scale,
-    width: nextWidth,
-    height: nextHeight,
-  };
-  applyView();
-}
-
-function clamp(value, minimum, maximum) {
-  return Math.max(minimum, Math.min(maximum, value));
-}
-
-function lonToTileX(longitude, zoomLevel) {
-  return (longitude + 180) / 360 * (2 ** zoomLevel);
-}
-
-function latToTileY(latitude, zoomLevel) {
-  const radians = clamp(latitude, -85.05112878, 85.05112878) * Math.PI / 180;
-  return (1 - Math.asinh(Math.tan(radians)) / Math.PI) / 2 * (2 ** zoomLevel);
-}
-
-function tileXToLon(x, zoomLevel) {
-  return x / (2 ** zoomLevel) * 360 - 180;
-}
-
-function tileYToLat(y, zoomLevel) {
-  return Math.atan(Math.sinh(Math.PI * (1 - 2 * y / (2 ** zoomLevel)))) * 180 / Math.PI;
-}
-
-function scheduleBasemapRender() {
-  if (!state.scenario) return;
-  clearTimeout(state.basemapTimer);
-  state.basemapTimer = setTimeout(renderBasemapTiles, 60);
-}
-
-function visibleLonLatBounds() {
-  const topLeft = toLonLat({x: state.view.x, y: state.view.y});
-  const bottomRight = toLonLat({x: state.view.x + state.view.width, y: state.view.y + state.view.height});
-  return {
-    west: clamp(Math.min(topLeft[0], bottomRight[0]), -180, 180),
-    south: clamp(Math.min(topLeft[1], bottomRight[1]), -85.05112878, 85.05112878),
-    east: clamp(Math.max(topLeft[0], bottomRight[0]), -180, 180),
-    north: clamp(Math.max(topLeft[1], bottomRight[1]), -85.05112878, 85.05112878),
-  };
-}
-
-function tileRange(bounds, zoomLevel) {
-  const limit = 2 ** zoomLevel;
-  return {
-    xMin: clamp(Math.floor(lonToTileX(bounds.west, zoomLevel)), 0, limit - 1),
-    xMax: clamp(Math.floor(lonToTileX(bounds.east, zoomLevel)), 0, limit - 1),
-    yMin: clamp(Math.floor(latToTileY(bounds.north, zoomLevel)), 0, limit - 1),
-    yMax: clamp(Math.floor(latToTileY(bounds.south, zoomLevel)), 0, limit - 1),
-  };
-}
-
-function renderBasemapTiles() {
-  const group = $('basemap-tiles');
-  group.textContent = '';
-  const definition = state.basemaps.find(item => item.id === state.basemap);
-  if (!state.scenario || state.basemap === 'offline' || !definition?.available) return;
-
-  const bounds = visibleLonLatBounds();
-  const widthPixels = Math.max(320, $('map').clientWidth || 1000);
-  const longitudeSpan = Math.max(0.000001, bounds.east - bounds.west);
-  let zoomLevel = clamp(Math.floor(Math.log2(360 * widthPixels / (longitudeSpan * 256))), 2, definition.max_zoom);
-  let range = tileRange(bounds, zoomLevel);
-  while ((range.xMax - range.xMin + 1) * (range.yMax - range.yMin + 1) > 80 && zoomLevel > 2) {
-    zoomLevel -= 1;
-    range = tileRange(bounds, zoomLevel);
+  if (state.map && state.scenarioBounds) {
+    state.map.fitBounds(state.scenarioBounds, {padding: [24, 24], animate: false});
   }
+}
 
-  const generation = ++state.basemapGeneration;
-  let failures = 0;
-  for (let x = range.xMin; x <= range.xMax; x += 1) {
-    for (let y = range.yMin; y <= range.yMax; y += 1) {
-      const northWest = toWorld([tileXToLon(x, zoomLevel), tileYToLat(y, zoomLevel)]);
-      const southEast = toWorld([tileXToLon(x + 1, zoomLevel), tileYToLat(y + 1, zoomLevel)]);
-      const image = svgElement('image', {
-        class: 'basemap-tile',
-        href: `/v1/basemaps/${encodeURIComponent(state.basemap)}/${zoomLevel}/${x}/${y}.png`,
-        x: northWest.x,
-        y: northWest.y,
-        width: southEast.x - northWest.x,
-        height: southEast.y - northWest.y,
-        preserveAspectRatio: 'none',
+function setMode(mode) {
+  state.mode = mode;
+  $('map').dataset.mode = mode;
+  for (const name of ['inspect', 'draw', 'pan']) {
+    $(`mode-${name}`).setAttribute('aria-pressed', String(name === mode));
+  }
+  const messages = {
+    inspect: '查看模式：点击地图读取该位置的环境信息。',
+    draw: '画航点模式：点击地图新增中间航点，也可拖动已有航点。',
+    pan: '平移模式：拖动或缩放地图，不新增航点。',
+  };
+  if (state.scenario) setStatus(messages[mode]);
+}
+
+function addLayerToggle(layer, checked, onChange) {
+  const row = document.createElement('label');
+  row.className = `layer-item${layer.available === false ? ' unavailable' : ''}`;
+  const input = document.createElement('input');
+  input.type = 'checkbox';
+  input.checked = checked;
+  input.disabled = layer.available === false;
+  input.addEventListener('change', () => onChange(input.checked));
+  const name = document.createElement('span');
+  name.textContent = layer.name;
+  const kind = document.createElement('small');
+  kind.textContent = layer.kind === 'raster' ? '栅格' : '矢量';
+  row.append(input, name, kind);
+  $('layers').appendChild(row);
+  return {row, input};
+}
+
+function layerStyle(layerId) {
+  if (layerId === 'buildings') {
+    return {color: '#f59e0b', weight: 0.8, opacity: 0.9, fillColor: '#f59e0b', fillOpacity: 0.28,
+      renderer: state.vectorRenderer, bubblingMouseEvents: false};
+  }
+  if (layerId === 'airspace') {
+    return {color: '#ef4444', weight: 2, opacity: 0.95, dashArray: '7 5', fillColor: '#ef4444', fillOpacity: 0.2,
+      renderer: state.vectorRenderer, bubblingMouseEvents: false};
+  }
+  return {color: '#fbbf24', weight: 2, opacity: 0.95, fillColor: '#ef4444', fillOpacity: 0.18,
+    renderer: state.vectorRenderer, bubblingMouseEvents: false};
+}
+
+function featureTitle(layerId) {
+  return {buildings: '3D 建筑', airspace: '空域管制区', emergency_sites: '应急起降点'}[layerId] || layerId;
+}
+
+function showFeatureProperties(feature, title) {
+  const box = $('environment');
+  box.textContent = '';
+  const heading = document.createElement('strong');
+  heading.textContent = title;
+  const pre = document.createElement('pre');
+  pre.textContent = JSON.stringify(feature.properties || {}, null, 2);
+  box.append(heading, pre);
+}
+
+function geoJSONLayer(data, layerId, title) {
+  return L.geoJSON(data, {
+    renderer: state.vectorRenderer,
+    style: () => layerStyle(layerId),
+    pointToLayer: (_feature, latlng) => L.circleMarker(latlng, {
+      renderer: state.vectorRenderer,
+      radius: layerId === 'emergency_sites' ? 7 : 6,
+      color: '#111827',
+      weight: 1.5,
+      fillColor: layerId === 'emergency_sites' ? '#facc15' : '#fb7185',
+      fillOpacity: 0.95,
+      bubblingMouseEvents: false,
+    }),
+    onEachFeature: (feature, leafletLayer) => {
+      leafletLayer.on('click', event => {
+        if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+        showFeatureProperties(feature, title);
       });
-      image.addEventListener('error', () => {
-        if (generation !== state.basemapGeneration) return;
-        failures += 1;
-        if (failures === 4) {
-          setBasemap('offline', true);
-          setStatus('在线底图暂时不可用，已自动回退到离线场景图层。', true);
-        }
+      const properties = JSON.stringify(feature.properties || {}, null, 2);
+      leafletLayer.bindPopup(`<strong>${escapeHtml(title)}</strong><pre class="feature-popup">${escapeHtml(properties)}</pre>`, {
+        maxWidth: 340,
       });
-      group.appendChild(image);
-    }
+    },
+  });
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+async function ensureScenarioLayer(layerId) {
+  const control = state.layerControls.get(layerId);
+  if (!control || control.mapLayer || control.loadingPromise) return control?.loadingPromise;
+  const definition = control.definition;
+  if (definition.kind === 'raster') {
+    control.mapLayer = L.imageOverlay(definition.preview_url, state.scenarioBounds, {
+      opacity: layerId === 'dem' ? 0.82 : 0.58,
+      interactive: false,
+      pane: 'overlayPane',
+    });
+    return control.mapLayer;
+  }
+  control.row.classList.add('loading');
+  control.loadingPromise = request(`/v1/layers/${encodeURIComponent(layerId)}`)
+    .then(data => {
+      control.mapLayer = geoJSONLayer(data, layerId, featureTitle(layerId));
+      if (control.input.checked) control.mapLayer.addTo(state.map);
+      return control.mapLayer;
+    })
+    .catch(error => {
+      control.input.checked = false;
+      setStatus(`${definition.name}加载失败：${error.message}`, true);
+      return null;
+    })
+    .finally(() => {
+      control.row.classList.remove('loading');
+      control.loadingPromise = null;
+    });
+  return control.loadingPromise;
+}
+
+async function toggleScenarioLayer(layerId, visible) {
+  const control = state.layerControls.get(layerId);
+  if (!control) return;
+  if (visible && !control.mapLayer) await ensureScenarioLayer(layerId);
+  if (!control.mapLayer) return;
+  if (visible) control.mapLayer.addTo(state.map);
+  else control.mapLayer.removeFrom(state.map);
+}
+
+function renderScenarioLayers() {
+  $('layers').textContent = '';
+  state.layerControls.clear();
+  const initiallyVisible = new Set(['dem', 'buildings', 'airspace', 'emergency_sites']);
+  for (const definition of state.scenario.layers) {
+    const visible = Boolean(definition.available && initiallyVisible.has(definition.id));
+    const toggle = addLayerToggle(definition, visible, checked => toggleScenarioLayer(definition.id, checked));
+    const control = {...toggle, definition, mapLayer: null, loadingPromise: null};
+    state.layerControls.set(definition.id, control);
+    if (visible) toggleScenarioLayer(definition.id, true);
   }
 }
 
@@ -187,23 +209,52 @@ function updateDemForBasemap() {
     if (!control.input.disabled) state.demWasVisible = control.input.checked;
     control.input.checked = false;
     control.input.disabled = true;
-    control.image?.setAttribute('visibility', 'hidden');
+    if (control.mapLayer) control.mapLayer.removeFrom(state.map);
   } else {
     control.input.disabled = false;
     control.input.checked = state.demWasVisible;
-    control.image?.setAttribute('visibility', state.demWasVisible ? 'visible' : 'hidden');
+    if (state.demWasVisible) toggleScenarioLayer('dem', true);
   }
 }
 
 function setBasemap(providerId, quiet = false) {
   const definition = state.basemaps.find(item => item.id === providerId && item.available)
     || state.basemaps.find(item => item.id === 'offline');
-  if (!definition) return;
+  if (!definition || !state.map) return;
+  if (state.basemapLayer) {
+    state.basemapLayer.removeFrom(state.map);
+    state.basemapLayer = null;
+  }
   state.basemap = definition.id;
+  state.basemapFailures = 0;
+  $('map').dataset.basemap = definition.id === 'offline' ? 'scenario' : 'tiled';
   $('basemap').value = definition.id;
   $('basemap-attribution').textContent = definition.attribution;
+  if (definition.id !== 'offline') {
+    state.basemapLayer = L.tileLayer(
+      `/v1/basemaps/${encodeURIComponent(definition.id)}/{z}/{x}/{y}.png`,
+      {
+        pane: 'tilePane',
+        minNativeZoom: Number(definition.min_zoom || 0),
+        maxNativeZoom: Number(definition.max_zoom),
+        minZoom: 0,
+        maxZoom: 20,
+        keepBuffer: 3,
+        updateWhenIdle: true,
+        attribution: definition.attribution,
+      },
+    );
+    state.basemapLayer.on('tileerror', () => {
+      state.basemapFailures += 1;
+      if (state.basemapFailures === 6 && definition.online) {
+        setBasemap('offline', true);
+        setStatus('在线底图暂时不可用，已回退到离线场景图层。', true);
+      }
+    });
+    state.basemapLayer.addTo(state.map);
+    state.basemapLayer.bringToBack();
+  }
   updateDemForBasemap();
-  renderBasemapTiles();
   if (!quiet) setStatus(`已切换到底图：${definition.name}。`);
 }
 
@@ -225,61 +276,9 @@ async function loadBasemaps() {
     setBasemap(data.default, true);
   } catch (_) {
     state.basemaps = [{id: 'offline', name: '离线场景图层', online: false, available: true,
-      attribution: 'ALE-AAM 场景数据', max_zoom: 19}];
+      attribution: 'ALE-AAM 场景数据', min_zoom: 0, max_zoom: 20}];
     select.disabled = true;
     setBasemap('offline', true);
-  }
-}
-
-function setMode(mode) {
-  state.mode = mode;
-  $('map').dataset.mode = mode;
-  for (const name of ['inspect', 'draw', 'pan']) {
-    $(`mode-${name}`).setAttribute('aria-pressed', String(name === mode));
-  }
-}
-
-function addLayerToggle(layer, checked, onChange) {
-  const row = document.createElement('label');
-  row.className = `layer-item${layer.available === false ? ' unavailable' : ''}`;
-  const input = document.createElement('input');
-  input.type = 'checkbox';
-  input.checked = checked;
-  input.disabled = layer.available === false;
-  input.addEventListener('change', () => onChange(input.checked));
-  const name = document.createElement('span');
-  name.textContent = layer.name;
-  const kind = document.createElement('small');
-  kind.textContent = layer.kind === 'raster' ? '栅格' : '矢量';
-  row.append(input, name, kind);
-  $('layers').appendChild(row);
-  return {row, input};
-}
-
-function renderScenarioLayers() {
-  const group = $('scenario-layers');
-  group.textContent = '';
-  $('layers').textContent = '';
-  state.layerControls.clear();
-  const initiallyVisible = new Set(['dem', 'buildings', 'airspace', 'emergency_sites']);
-  for (const layer of state.scenario.layers) {
-    const visible = layer.available && initiallyVisible.has(layer.id);
-    let image = null;
-    if (layer.available) {
-      image = svgElement('image', {
-        id: `layer-${layer.id}`,
-        class: 'scenario-layer',
-        href: layer.preview_url,
-        x: 0, y: 0, width: state.world.width, height: state.world.height,
-        preserveAspectRatio: 'none',
-        visibility: visible ? 'visible' : 'hidden',
-      });
-      group.appendChild(image);
-    }
-    const control = addLayerToggle(layer, visible, checked => {
-      if (image) image.setAttribute('visibility', checked ? 'visible' : 'hidden');
-    });
-    state.layerControls.set(layer.id, {...control, image});
   }
 }
 
@@ -348,7 +347,7 @@ function renderWaypointList() {
     altitude.max = state.scenario.constraints.altitude_m_agl.max;
     altitude.step = '1';
     altitude.value = waypoint.altitude;
-    altitude.addEventListener('change', () => waypoint.altitude = Number(altitude.value));
+    altitude.addEventListener('change', () => { waypoint.altitude = Number(altitude.value); });
     altitudeLabel.appendChild(altitude);
     const speedLabel = document.createElement('label');
     speedLabel.textContent = '速度 m/s';
@@ -358,12 +357,12 @@ function renderWaypointList() {
     speed.max = state.scenario.constraints.speed_ms.max;
     speed.step = '0.5';
     speed.value = waypoint.speed;
-    speed.addEventListener('change', () => waypoint.speed = Number(speed.value));
+    speed.addEventListener('change', () => { waypoint.speed = Number(speed.value); });
     speedLabel.appendChild(speed);
     fields.append(altitudeLabel, speedLabel);
     item.append(head, fields);
     item.addEventListener('click', event => {
-      if (event.target.tagName !== 'INPUT' && event.target.tagName !== 'BUTTON') {
+      if (!['INPUT', 'BUTTON'].includes(event.target.tagName)) {
         state.selectedWaypoint = index;
         renderDraft();
       }
@@ -373,33 +372,52 @@ function renderWaypointList() {
   $('export').disabled = state.waypoints.length < 2;
 }
 
-function renderDraft() {
-  const group = $('draft');
-  group.textContent = '';
-  if (state.waypoints.length > 1) {
-    const points = state.waypoints.map(item => {
-      const point = toWorld(item.coordinate);
-      return `${point.x},${point.y}`;
-    }).join(' ');
-    group.appendChild(svgElement('polyline', {class: 'route-line', points}));
+function waypointIcon(index) {
+  const selected = state.selectedWaypoint === index ? ' selected' : '';
+  return L.divIcon({
+    className: `waypoint-icon${selected}`,
+    html: `<span class="waypoint-dot">${index + 1}</span>`,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
+function updateRouteLine() {
+  const latlngs = state.waypoints.map(item => toLatLng(item.coordinate));
+  if (!state.routeLayer) {
+    state.routeLayer = L.polyline(latlngs, {color: '#22d3ee', weight: 4, opacity: 0.95,
+      renderer: state.vectorRenderer, bubblingMouseEvents: false}).addTo(state.map);
+  } else {
+    state.routeLayer.setLatLngs(latlngs);
   }
-  const radius = Math.max(5, state.view.width * 0.006);
-  state.waypoints.forEach((waypoint, index) => {
-    const point = toWorld(waypoint.coordinate);
-    const circle = svgElement('circle', {
-      class: `waypoint${state.selectedWaypoint === index ? ' selected' : ''}`,
-      cx: point.x, cy: point.y, r: radius, 'data-index': index,
-    });
-    circle.addEventListener('pointerdown', event => {
-      event.stopPropagation();
+}
+
+function renderDraft() {
+  updateRouteLine();
+  for (const marker of state.waypointMarkers) marker.removeFrom(state.map);
+  state.waypointMarkers = state.waypoints.map((waypoint, index) => {
+    const marker = L.marker(toLatLng(waypoint.coordinate), {
+      icon: waypointIcon(index),
+      draggable: true,
+      keyboard: true,
+      bubblingMouseEvents: false,
+      title: `航点 ${index + 1}`,
+      zIndexOffset: 500,
+    }).addTo(state.map);
+    marker.on('click', () => {
       state.selectedWaypoint = index;
-      state.draggingWaypoint = index;
-      $('map').setPointerCapture(event.pointerId);
       renderDraft();
     });
-    const label = svgElement('text', {class: 'waypoint-label', x: point.x + radius * 1.4, y: point.y - radius * 1.2});
-    label.textContent = String(index + 1);
-    group.append(circle, label);
+    marker.on('drag', event => {
+      waypoint.coordinate = toCoordinate(event.target.getLatLng());
+      updateRouteLine();
+    });
+    marker.on('dragend', async event => {
+      waypoint.coordinate = toCoordinate(event.target.getLatLng());
+      await sampleWaypoint(index);
+      renderDraft();
+    });
+    return marker;
   });
   renderWaypointList();
 }
@@ -418,8 +436,8 @@ function showEnvironment(data, title = '场景环境') {
   const heading = document.createElement('strong');
   heading.textContent = `${title} · ${data.coordinate[0].toFixed(6)}, ${data.coordinate[1].toFixed(6)}`;
   const raster = document.createElement('div');
-  const r = data.rasters;
-  raster.textContent = `地形 ${r.terrain_elevation_m_msl ?? '无数据'} m MSL · 气象 ${r.weather_value ?? '无数据'} · 人口 ${r.population_density ?? '无数据'}`;
+  const values = data.rasters;
+  raster.textContent = `地形 ${values.terrain_elevation_m_msl ?? '无数据'} m MSL · 气象 ${values.weather_value ?? '无数据'} · 人口 ${values.population_density ?? '无数据'}`;
   box.append(heading, raster);
   for (const [name, features] of Object.entries(data.features)) {
     if (!features.length) continue;
@@ -437,69 +455,18 @@ async function inspectCoordinate(coordinate) {
 }
 
 function showLocation(coordinate) {
-  const point = toWorld(coordinate);
-  const radius = Math.max(7, state.view.width * 0.009);
-  const group = $('location-marker');
-  group.textContent = '';
-  group.appendChild(svgElement('circle', {class: 'location-dot', cx: point.x, cy: point.y, r: radius}));
-  state.view.x = point.x - state.view.width / 2;
-  state.view.y = point.y - state.view.height / 2;
-  applyView();
-}
-
-function geometryPath(geometry) {
-  const line = coordinates => coordinates.map((coordinate, index) => {
-    const point = toWorld(coordinate);
-    return `${index ? 'L' : 'M'}${point.x},${point.y}`;
-  }).join(' ');
-  if (geometry.type === 'LineString') return line(geometry.coordinates);
-  if (geometry.type === 'MultiLineString') return geometry.coordinates.map(line).join(' ');
-  if (geometry.type === 'Polygon') return geometry.coordinates.map(ring => `${line(ring)} Z`).join(' ');
-  if (geometry.type === 'MultiPolygon') return geometry.coordinates.flatMap(polygon => polygon.map(ring => `${line(ring)} Z`)).join(' ');
-  return '';
-}
-
-function renderLocalLayer(layer) {
-  const group = svgElement('g', {'data-local-layer': layer.id});
-  for (const feature of layer.data.features) {
-    const geometry = feature.geometry || {};
-    if (geometry.type === 'Point') {
-      const point = toWorld(geometry.coordinates);
-      const circle = svgElement('circle', {class: 'local-feature', cx: point.x, cy: point.y, r: 5});
-      circle.addEventListener('pointerdown', event => event.stopPropagation());
-      circle.addEventListener('pointerup', event => event.stopPropagation());
-      circle.addEventListener('click', event => showLocalProperties(event, feature, layer.name));
-      group.appendChild(circle);
-      continue;
-    }
-    const pathData = geometryPath(geometry);
-    if (!pathData) continue;
-    const path = svgElement('path', {
-      class: `local-feature${geometry.type.includes('Line') ? ' line' : ''}`,
-      d: pathData,
-      'fill-rule': 'evenodd',
-    });
-    path.addEventListener('pointerdown', event => event.stopPropagation());
-    path.addEventListener('pointerup', event => event.stopPropagation());
-    path.addEventListener('click', event => showLocalProperties(event, feature, layer.name));
-    group.appendChild(path);
-  }
-  $('local-layers').appendChild(group);
-  layer.node = group;
-  addLayerToggle({name: layer.name, kind: 'vector', available: true}, true, checked => {
-    group.setAttribute('visibility', checked ? 'visible' : 'hidden');
-  });
-}
-
-function showLocalProperties(event, feature, name) {
-  event.stopPropagation();
-  const box = $('environment');
-  box.textContent = '';
-  const heading = document.createElement('strong');
-  heading.textContent = name;
-  const pre = document.createElement('pre');
-  pre.textContent = JSON.stringify(feature.properties || {}, null, 2);
-  box.append(heading, pre);
+  const latlng = toLatLng(coordinate);
+  if (state.locationMarker) state.locationMarker.removeFrom(state.map);
+  state.locationMarker = L.circleMarker(latlng, {
+    renderer: state.vectorRenderer,
+    radius: 9,
+    color: '#facc15',
+    fillColor: '#facc15',
+    fillOpacity: 0.12,
+    weight: 3,
+    bubblingMouseEvents: false,
+  }).addTo(state.map);
+  state.map.panTo(latlng);
 }
 
 async function geojsonFromZip(file) {
@@ -528,16 +495,22 @@ async function geojsonFromZip(file) {
 function normalizeGeoJSON(data) {
   if (data.type === 'FeatureCollection' && Array.isArray(data.features)) return data;
   if (data.type === 'Feature') return {type: 'FeatureCollection', features: [data]};
-  if (data.type && data.coordinates) return {type: 'FeatureCollection', features: [{type: 'Feature', geometry: data, properties: {}}]};
+  if (data.type && data.coordinates) {
+    return {type: 'FeatureCollection', features: [{type: 'Feature', geometry: data, properties: {}}]};
+  }
   throw new Error('文件不是有效的 GeoJSON FeatureCollection、Feature 或 Geometry');
 }
 
 async function importFile(file) {
   const raw = file.name.toLowerCase().endsWith('.zip') ? await geojsonFromZip(file) : JSON.parse(await file.text());
   const data = normalizeGeoJSON(raw);
-  const layer = {id: `local-${state.localLayers.length + 1}`, name: file.name, data};
+  const mapLayer = geoJSONLayer(data, 'local', file.name).addTo(state.map);
+  const layer = {id: `local-${state.localLayers.length + 1}`, name: file.name, data, mapLayer};
   state.localLayers.push(layer);
-  renderLocalLayer(layer);
+  addLayerToggle({name: layer.name, kind: 'vector', available: true}, true, checked => {
+    if (checked) mapLayer.addTo(state.map);
+    else mapLayer.removeFrom(state.map);
+  });
   setStatus(`已加载 ${file.name}：${data.features.length} 个要素。`);
 }
 
@@ -546,19 +519,25 @@ function exportRoute() {
   const waypoints = state.waypoints.map((waypoint, index) => {
     const item = {
       sequence: index + 1,
-      longitude: coordinates[index][0], latitude: coordinates[index][1],
-      altitude_m_agl: Number(waypoint.altitude), speed_ms: Number(waypoint.speed),
+      longitude: coordinates[index][0],
+      latitude: coordinates[index][1],
+      altitude_m_agl: Number(waypoint.altitude),
+      speed_ms: Number(waypoint.speed),
     };
-    if (Number.isFinite(waypoint.terrain)) item.altitude_m_msl = Number((waypoint.terrain + waypoint.altitude).toFixed(2));
+    if (Number.isFinite(waypoint.terrain)) {
+      item.altitude_m_msl = Number((waypoint.terrain + waypoint.altitude).toFixed(2));
+    }
     return item;
   });
   const feature = {
     type: 'Feature',
     geometry: {type: 'LineString', coordinates},
     properties: {
-      schema_version: '2.0', route_name: 'MANUAL',
+      schema_version: '2.0',
+      route_name: 'MANUAL',
       coordinate_order: '[longitude, latitude]',
-      created_by: 'ALE-AAM interactive editor', waypoints,
+      created_by: 'ALE-AAM interactive editor',
+      waypoints,
     },
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(feature, null, 2)], {type: 'application/geo+json'}));
@@ -577,8 +556,6 @@ function bindEvents() {
   $('mode-pan').addEventListener('click', () => setMode('pan'));
   $('reset-route').addEventListener('click', resetRoute);
   $('reset-view').addEventListener('click', resetView);
-  $('zoom-in').addEventListener('click', () => zoom(0.7));
-  $('zoom-out').addEventListener('click', () => zoom(1.4));
   $('export').addEventListener('click', exportRoute);
   $('locate').addEventListener('click', async () => {
     const coordinate = [Number($('longitude').value), Number($('latitude').value)];
@@ -592,68 +569,37 @@ function bindEvents() {
     }
     event.target.value = '';
   });
+}
 
-  const map = $('map');
-  map.addEventListener('wheel', event => {
-    event.preventDefault();
-    zoom(event.deltaY < 0 ? 0.8 : 1.25, clientToWorld(event));
-  }, {passive: false});
-  map.addEventListener('pointerdown', event => {
-    if (state.draggingWaypoint !== null || event.button !== 0) return;
-    state.pointer = {id: event.pointerId, x: event.clientX, y: event.clientY, view: {...state.view}, dragged: false};
-    map.setPointerCapture(event.pointerId);
+function initializeMap() {
+  state.map = L.map('map', {
+    zoomControl: true,
+    attributionControl: false,
+    minZoom: 2,
+    maxZoom: 20,
+    preferCanvas: true,
+    wheelDebounceTime: 25,
   });
-  map.addEventListener('pointermove', event => {
-    if (state.draggingWaypoint !== null) {
-      state.waypoints[state.draggingWaypoint].coordinate = toLonLat(clientToWorld(event));
-      renderDraft();
+  state.map.zoomControl.setPosition('topright');
+  state.vectorRenderer = L.canvas({padding: 0.5, tolerance: 5});
+  state.map.on('click', async event => {
+    if (!state.scenario || state.mode === 'pan') return;
+    const coordinate = toCoordinate(event.latlng);
+    if (state.mode === 'draw') {
+      addWaypoint(coordinate);
       return;
     }
-    if (!state.pointer || state.pointer.id !== event.pointerId || state.mode !== 'pan') return;
-    const rect = map.getBoundingClientRect();
-    const dx = event.clientX - state.pointer.x;
-    const dy = event.clientY - state.pointer.y;
-    if (Math.abs(dx) + Math.abs(dy) > 3) state.pointer.dragged = true;
-    state.view.x = state.pointer.view.x - dx / rect.width * state.pointer.view.width;
-    state.view.y = state.pointer.view.y - dy / rect.height * state.pointer.view.height;
-    map.dataset.panning = 'true';
-    applyView();
-  });
-  map.addEventListener('pointerup', async event => {
-    if (state.draggingWaypoint !== null) {
-      const index = state.draggingWaypoint;
-      state.draggingWaypoint = null;
-      await sampleWaypoint(index);
-      renderDraft();
-      return;
-    }
-    if (!state.pointer || state.pointer.id !== event.pointerId) return;
-    const pointer = state.pointer;
-    state.pointer = null;
-    map.dataset.panning = 'false';
-    if (pointer.dragged || state.mode === 'pan') return;
-    const coordinate = toLonLat(clientToWorld(event));
-    if (state.mode === 'draw') addWaypoint(coordinate);
-    else {
-      try { await inspectCoordinate(coordinate); } catch (error) { setStatus(error.message, true); }
-    }
-  });
-  map.addEventListener('pointercancel', () => {
-    state.pointer = null;
-    state.draggingWaypoint = null;
-    map.dataset.panning = 'false';
+    try { await inspectCoordinate(coordinate); } catch (error) { setStatus(error.message, true); }
   });
 }
 
 async function initialize() {
-  bindEvents();
-  setMode('inspect');
   try {
+    initializeMap();
+    bindEvents();
+    setMode('inspect');
     state.scenario = await request('/v1/scenario');
-    const e = state.scenario.extent;
-    const latitude = (e.south + e.north) / 2 * Math.PI / 180;
-    state.world.height = Math.max(320, 1000 * (e.north - e.south) / (e.east - e.west) / Math.cos(latitude));
-    state.fullView = {x: 0, y: 0, width: state.world.width, height: state.world.height};
+    state.scenarioBounds = scenarioLeafletBounds();
     resetView();
     renderScenarioLayers();
     await loadBasemaps();

@@ -34,9 +34,9 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
 button.primary { width: 100%; background: var(--primary); border-color: #60a5fa; }
 button.secondary { background: transparent; }
 button:disabled { opacity: .45; cursor: not-allowed; }
-.button-row, .mode-switch { display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
-.mode-switch { grid-template-columns: repeat(3, 1fr); }
-.mode-switch button[aria-pressed="true"] { background: var(--primary); border-color: #60a5fa; }
+.button-row, .mode-switch { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); }
+.mode-switch { grid-template-columns: repeat(2, 1fr); }
+.button-row button[aria-pressed="true"], .mode-switch button[aria-pressed="true"] { background: var(--primary); border-color: #60a5fa; }
 .coordinate-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
 .coordinate-fields label { color: var(--muted); font-size: 12px; }
 .coordinate-fields input, .waypoint-fields input { width: 100%; margin-top: 4px; padding: 7px; border: 1px solid #3a5877; border-radius: 6px; background: #081729; color: inherit; }
@@ -44,6 +44,7 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .layer-item { display: flex; align-items: center; gap: 8px; min-height: 28px; font-size: 13px; }
 .layer-item small { margin-left: auto; color: var(--muted); }
 .layer-item.unavailable { opacity: .45; }
+.layer-item.loading small::after { content: " · 加载中"; color: var(--accent); }
 .environment { margin-top: 10px; padding: 10px; min-height: 48px; border-left: 3px solid #28577f; background: #081729; color: #cbdced; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
 .environment strong { color: #fff; }
 .environment pre { margin: 6px 0 0; white-space: pre-wrap; font: 11px/1.45 ui-monospace, monospace; }
@@ -56,24 +57,32 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .waypoint-fields label { color: var(--muted); font-size: 11px; }
 output { display: block; min-height: 18px; margin-top: 9px; color: var(--muted); font-size: 12px; line-height: 1.5; }
 main { position: relative; min-width: 0; background: #020817; overflow: hidden; }
-#map { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair; background: #06101d; }
-#map[data-mode="pan"] { cursor: grab; }
-#map[data-panning="true"] { cursor: grabbing; }
-.map-toolbar { position: absolute; z-index: 3; top: 16px; right: 16px; display: grid; gap: 6px; }
-.map-toolbar button { width: 38px; height: 38px; padding: 0; background: #0d1b2ddd; font-size: 22px; }
-.map-help { position: absolute; z-index: 3; left: 16px; bottom: 14px; padding: 7px 10px; border-radius: 5px; background: #07111fdd; color: var(--muted); font-size: 11px; pointer-events: none; }
-.map-attribution { position: absolute; z-index: 3; right: 16px; bottom: 14px; padding: 5px 8px; border-radius: 4px; background: #07111fdd; color: #cbd5e1; font-size: 10px; pointer-events: none; }
-.basemap-tile { pointer-events: none; }
-.scenario-layer { pointer-events: none; }
-.local-feature { fill: rgba(239,68,68,.2); stroke: #fb7185; stroke-width: 1.2; vector-effect: non-scaling-stroke; cursor: help; }
-.local-feature.line { fill: none; stroke: #fbbf24; }
-.route-line { fill: none; stroke: #22d3ee; stroke-width: 4; vector-effect: non-scaling-stroke; }
-.waypoint { fill: #f8fafc; stroke: #0369a1; stroke-width: 3; vector-effect: non-scaling-stroke; cursor: move; }
-.waypoint.selected { fill: #facc15; stroke: #713f12; }
-.waypoint-label { fill: #fff; paint-order: stroke; stroke: #07111f; stroke-width: 3; stroke-linejoin: round; font: 500 12px system-ui; pointer-events: none; }
-.location-dot { fill: none; stroke: #facc15; stroke-width: 3; vector-effect: non-scaling-stroke; }
+#map { display: block; width: 100%; height: 100%; background: #06101d; }
+#map[data-basemap="tiled"] { background: #b6d3dc; }
+#map[data-mode="inspect"] .leaflet-grab { cursor: crosshair; }
+#map[data-mode="draw"] .leaflet-grab { cursor: copy; }
+#map[data-mode="pan"] .leaflet-grab { cursor: grab; }
+.map-help { position: absolute; z-index: 800; left: 16px; bottom: 14px; padding: 7px 10px; border-radius: 5px; background: #07111fdd; color: var(--muted); font-size: 11px; pointer-events: none; }
+.map-attribution { position: absolute; z-index: 800; right: 16px; bottom: 14px; max-width: min(50%, 560px); padding: 5px 8px; border-radius: 4px; background: #07111fdd; color: #cbd5e1; font-size: 10px; text-align: right; pointer-events: none; }
+.map-legend { position: absolute; z-index: 800; top: 16px; left: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 8px 10px; border: 1px solid #29435f; border-radius: 6px; background: #07111fdd; color: #dbeafe; font-size: 10px; pointer-events: none; }
+.map-legend span { display: flex; align-items: center; gap: 6px; }
+.map-legend i { display: inline-block; width: 16px; height: 9px; border: 2px solid; }
+.map-legend .legend-building { border-color: #f59e0b; background: #f59e0b55; }
+.map-legend .legend-airspace { border-color: #ef4444; background: #ef444444; }
+.map-legend .legend-emergency { width: 10px; height: 10px; border-color: #111827; border-radius: 50%; background: #facc15; }
+.map-legend .legend-route { height: 0; border-color: #22d3ee; border-width: 2px 0 0; }
+.leaflet-control-zoom a { background: #0d1b2dee; color: #e8f0fa; border-bottom-color: #29435f; }
+.leaflet-control-zoom a:hover { background: #17314d; color: #fff; }
+.leaflet-control-zoom { border-color: #3a5877 !important; }
+.leaflet-container { font-family: inherit; }
+.leaflet-image-layer { image-rendering: auto; }
+.waypoint-icon { background: transparent; border: 0; }
+.waypoint-dot { display: grid; place-items: center; width: 24px; height: 24px; border: 3px solid #0369a1; border-radius: 50%; background: #f8fafc; color: #07111f; box-shadow: 0 1px 4px #020817cc; font: 700 11px/1 system-ui; cursor: move; }
+.waypoint-icon.selected .waypoint-dot { border-color: #713f12; background: #facc15; }
+.feature-popup { max-width: 300px; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: 11px/1.45 ui-monospace, monospace; }
 @media (max-width: 760px) {
   body { grid-template-columns: 1fr; grid-template-rows: minmax(280px, 46vh) 1fr; overflow: auto; }
   .workspace-panel { border-right: 0; border-bottom: 1px solid var(--line); }
   main { min-height: 54vh; }
+  .map-attribution { max-width: 65%; }
 }

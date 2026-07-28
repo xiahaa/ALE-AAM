@@ -294,6 +294,12 @@ class Scenario:
             for key, name, kind, unit, available in definitions
         ]
 
+    def vector_layer(self, layer_id: str) -> dict:
+        """Return one declared vector layer as GeoJSON without exposing a path."""
+        if layer_id not in self.vector_features:
+            raise KeyError(layer_id)
+        return {"type": "FeatureCollection", "features": self.vector_features[layer_id]}
+
     def environment_at(self, lon: float, lat: float) -> dict:
         """Return raster samples and visible vector properties at a WGS84 point."""
         west, south, east, north = self.lonlat_bounds()

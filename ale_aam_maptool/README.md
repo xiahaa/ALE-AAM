@@ -1,4 +1,4 @@
-# ale-aam-maptool 0.2.0
+# ale-aam-maptool 0.2.1
 
 Deterministic, offline low-altitude route planning for the ALE benchmark.
 Platform-specific release wheels support CPython 3.10–3.13 on Windows x64,
@@ -19,7 +19,7 @@ guide: [USAGE.zh.md](USAGE.zh.md).
 - Ubuntu/macOS: place the wheelhouse beside the script, then run `sh install.sh`.
 
 The wheel workflow uploads one combined artifact named
-`ale-aam-maptool-0.2.0-macos-wheels`. It contains CPython 3.10-3.13 wheels for
+`ale-aam-maptool-0.2.1-macos-wheels`. It contains CPython 3.10-3.13 wheels for
 both Intel (`x86_64`) and Apple Silicon (`arm64`). Download the artifact, put
 the matching wheel under `dist/macos-arm64/` or `dist/macos-x86_64/`, and run
 `sh install.sh`. A maintainer who needs to bootstrap the first artifacts on a
@@ -40,7 +40,7 @@ run.sh plan-all --scenario SCENARIO --outdir output
 run.sh grid --scenario SCENARIO --route A|B|C --out grid.png
 run.sh validate --scenario SCENARIO --output output
 run.sh basemap inspect --scenario SCENARIO
-run.sh basemap verify --pack SCENARIO/basemaps/example.mbtiles
+run.sh basemap verify --pack SCENARIO/basemaps/hong_kong_landsd.mbtiles
 run.sh serve --scenario SCENARIO --host 127.0.0.1 --port 8000
 ```
 
@@ -49,14 +49,14 @@ stdout. Diagnostics use stderr. Exit codes are 2 configuration/validation, 3 no
 feasible route, and 4 native backend failure.
 
 The bound-scenario HTTP API is `/v1/health`, `/v1/scenario`, `/v1/preview`,
-`/v1/layers`, `/v1/environment`, `/v1/basemaps`, `/v1/plan`, `/v1/plan-all`,
-and `/v1/validate`.
-The Web interface loads the bound DEM/building/airspace/weather/population layers,
-supports local GeoJSON/ZIP overlays, inspects environment values, draws and edits
-waypoints, and exports a GeoJSON `LineString`. The browser cannot request an
-arbitrary server path. Offline scenario layers remain the default and require no
-network. For local development or demonstrations, TianDiTu and Mapbox can be
-enabled through the server-side basemap proxy.
+`/v1/layers`, `/v1/layers/{layer_id}`, `/v1/environment`, `/v1/basemaps`,
+`/v1/plan`, `/v1/plan-all`, and `/v1/validate`.
+The Web interface loads the bound DEM/weather/population rasters and original
+building/airspace/emergency GeoJSON vectors, supports local GeoJSON/ZIP overlays,
+inspects environment values, draws and edits fixed-pixel waypoints, and exports a
+GeoJSON `LineString`. The browser cannot request an arbitrary server path. For
+Hong Kong, the key-free live LandsD topographic provider is available without
+configuration. Formal ALE runs use the included scenario-local LandsD snapshot.
 
 Copy `.env.example` to `.env`, populate the provider values locally, and never
 commit that file. The browser receives only `/v1/basemaps/...` image URLs: provider
@@ -64,24 +64,28 @@ credentials are not embedded in HTML/JavaScript, API metadata, logs, or Git. Sta
 Web assets use no CDN or tracking service. Online basemaps are deliberately not
 enabled in the formal offline ALE task runtime.
 
-### Minimal offline basemap example
+### Official Hong Kong offline basemap
 
-The three ALE v0.2 scenarios include a small `basemaps/example.mbtiles` pack at
-zoom levels 12-14. It is rendered deterministically from the bundled DEM and
-building footprints and makes zero network requests. When no explicit provider
-is selected, `ALE_AAM_BASEMAP=auto` selects this pack automatically.
+The three ALE v0.2 scenarios include a bounded
+`basemaps/hong_kong_landsd.mbtiles` snapshot at zoom levels 12-17. At Hong Kong's
+latitude, z17 is roughly 1.1 m/pixel. Source URL, attribution, acquisition time,
+coverage, counts and SHA-256 are stored in the sibling manifest. When no explicit
+provider is selected, `ALE_AAM_BASEMAP=auto` selects this pack automatically.
 
 Use `basemap inspect` to list a scenario's packs and `basemap verify` to validate
 the SQLite schema, zoom range, tile count, bounds, and SHA-256. Maintainers can
-regenerate an example without provider credentials:
+refresh the bounded official snapshot without provider credentials; the script
+is serial, rate-limited, cached and records provenance:
 
 ```text
-python scripts/create_example_basemap.py --scenario ../ALE_v0.2/urban_drone_logistics/input/gis
+python scripts/build_hk_landsd_basemap.py \
+  --scenario ../ALE_v0.2/urban_drone_logistics/input/gis \
+  --min-zoom 12 --max-zoom 17
 ```
 
-Large production `.mbtiles` archives remain ignored by Git and should be
-distributed as versioned release assets. The committed examples contain no
-TianDiTu, Mapbox, or OpenStreetMap-hosted tiles.
+Only the bounded ALE scenario snapshots are committed; arbitrary large
+`.mbtiles` archives remain ignored. The packs contain no TianDiTu, Mapbox, or
+OpenStreetMap-hosted tiles.
 
 ## Scenario contract
 

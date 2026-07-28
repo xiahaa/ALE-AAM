@@ -26,20 +26,20 @@ def _xyz(lon, lat, zoom):
     return x, y
 
 
-def _write_test_mbtiles(path, lon, lat):
+def _write_test_mbtiles(path, lon, lat, pack_id="example"):
     image = Image.new("RGB", (8, 8), (31, 119, 140))
     buffer = io.BytesIO()
     image.save(buffer, format="PNG")
     zoom = 14
     x, y = _xyz(lon, lat, zoom)
-    path.parent.mkdir(parents=True)
+    path.parent.mkdir(parents=True, exist_ok=True)
     with sqlite3.connect(path) as connection:
         connection.executescript(
             "CREATE TABLE metadata (name TEXT PRIMARY KEY, value TEXT);"
             "CREATE TABLE tiles (zoom_level INTEGER, tile_column INTEGER, tile_row INTEGER, tile_data BLOB);"
         )
         connection.executemany("INSERT INTO metadata VALUES (?,?)", [
-            ("ale_aam_id", "example"), ("name", "Offline test pack"),
+            ("ale_aam_id", pack_id), ("name", "Offline test pack"),
             ("format", "png"), ("minzoom", "14"), ("maxzoom", "14"),
             ("bounds", f"{lon - .01},{lat - .01},{lon + .01},{lat + .01}"),
             ("attribution", "Test data"),
@@ -75,6 +75,14 @@ def test_versioned_bound_api_has_no_path_loader():
         "dem", "buildings", "airspace", "weather", "population", "emergency_sites"
     }
     assert client.get("/v1/layers/airspace/preview").headers["content-type"] == "image/png"
+    vector = client.get("/v1/layers/airspace")
+    assert vector.status_code == 200
+    assert vector.json()["type"] == "FeatureCollection"
+    assert len(vector.json()["features"]) == 1
+    assert client.get("/v1/layers/dem").status_code == 404
+    buildings = client.get("/v1/layers/buildings", headers={"Accept-Encoding": "gzip"})
+    assert buildings.status_code == 200
+    assert buildings.headers.get("content-encoding") == "gzip"
     start = client.get("/v1/scenario").json()["mission"]["start"]
     environment = client.get("/v1/environment", params={"lon": start[0], "lat": start[1]})
     assert environment.status_code == 200
@@ -82,12 +90,16 @@ def test_versioned_bound_api_has_no_path_loader():
     basemaps = client.get("/v1/basemaps")
     assert basemaps.status_code == 200
     assert any(provider["id"] == "offline" for provider in basemaps.json()["providers"])
+    landsd = next(provider for provider in basemaps.json()["providers"]
+                  if provider["id"] == "hk-landsd-topographic")
+    assert landsd["available"] is True
+    assert landsd["min_zoom"] == 10 and landsd["max_zoom"] == 20
     assert "token" not in basemaps.text.lower()
     assert "access_token" not in basemaps.text.lower()
     paths = client.get("/openapi.json").json()["paths"]
     assert "/scenario/load" not in paths
     assert set(("/v1/health","/v1/scenario","/v1/preview","/v1/layers",
-                "/v1/layers/{layer_id}/preview", "/v1/environment",
+                "/v1/layers/{layer_id}/preview", "/v1/layers/{layer_id}", "/v1/environment",
                 "/v1/basemaps", "/v1/basemaps/{provider_id}/{z}/{x}/{y}.png",
                 "/v1/plan","/v1/plan-all","/v1/validate")) <= set(paths)
 
@@ -100,22 +112,49 @@ def test_basemap_proxy_keeps_credentials_server_side(monkeypatch):
 
     monkeypatch.setenv("ALE_AAM_TIANDITU_TOKEN", "test-tianditu-secret")
     monkeypatch.setenv("ALE_AAM_MAPBOX_TOKEN", "test-mapbox-secret")
-    monkeypatch.setattr(basemap_module, "_download_tile", lambda _url: (tile_bytes, "image/png"))
+    seen_urls = []
+    def fake_download(url):
+        seen_urls.append(url)
+        return tile_bytes, "image/png"
+    monkeypatch.setattr(basemap_module, "_download_tile", fake_download)
     basemap_module.tile.cache_clear()
     try:
         client = TestClient(app)
         catalog = client.get("/v1/basemaps").json()
         assert {item["id"] for item in catalog["providers"] if item["available"]} >= {
-            "offline", "tianditu-vector", "mapbox-streets"
+            "offline", "hk-landsd-topographic", "tianditu-vector", "mapbox-streets"
         }
         assert "test-tianditu-secret" not in json.dumps(catalog)
         assert "test-mapbox-secret" not in json.dumps(catalog)
         assert client.get("/v1/basemaps/tianditu-vector/1/1/1.png").headers["content-type"] == "image/png"
         assert client.get("/v1/basemaps/mapbox-streets/1/1/1.png").headers["content-type"] == "image/png"
+        assert client.get("/v1/basemaps/hk-landsd-topographic/14/13386/7148.png").headers["content-type"] == "image/png"
+        assert any("mapapi.geodata.gov.hk" in url and "/WGS84/14/13386/7148.png" in url
+                   for url in seen_urls)
         assert client.get("/v1/basemaps/not-a-provider/1/1/1.png").status_code == 404
         assert client.get("/v1/basemaps/mapbox-streets/20/1/1.png").status_code == 422
     finally:
         basemap_module.tile.cache_clear()
+
+
+def test_empty_upstream_tile_becomes_transparent_png(monkeypatch):
+    class Headers:
+        @staticmethod
+        def get_content_type():
+            return "application/octet-stream"
+
+    class EmptyResponse:
+        status = 204
+        headers = Headers()
+        def __enter__(self): return self
+        def __exit__(self, *_args): return False
+        @staticmethod
+        def read(_limit): return b""
+
+    monkeypatch.setattr(basemap_module, "urlopen", lambda *_args, **_kwargs: EmptyResponse())
+    payload, media_type = basemap_module._download_tile("https://example.invalid/empty.png")
+    assert media_type == "image/png"
+    assert payload.startswith(b"\x89PNG\r\n\x1a\n")
 
 
 def test_scenario_local_mbtiles_is_discovered_and_served(tmp_path, monkeypatch):
@@ -146,11 +185,36 @@ def test_scenario_local_mbtiles_is_discovered_and_served(tmp_path, monkeypatch):
     assert len(report["pack"]["sha256"]) == 64
 
 
+def test_official_hong_kong_pack_is_preferred_when_multiple_exist(tmp_path, monkeypatch):
+    scenario_path = tmp_path / "scenario"
+    shutil.copytree(ROOT / "sample_scenario", scenario_path)
+    task = json.loads((scenario_path / "task.json").read_text(encoding="utf-8"))
+    lon, lat = task["mission"]["start"]
+    _write_test_mbtiles(scenario_path / "basemaps" / "example.mbtiles", lon, lat)
+    _write_test_mbtiles(scenario_path / "basemaps" / "hong_kong_landsd.mbtiles", lon, lat,
+                        "hong-kong-landsd")
+    monkeypatch.setenv("ALE_AAM_BASEMAP", "auto")
+    bind_scenario(scenario_path)
+    assert TestClient(app).get("/v1/basemaps").json()["default"] == "offline-hong-kong-landsd"
+
+
 def test_web_assets_are_offline():
     for name in ("index.html","app.js","style.css"):
         text = (ROOT / "ale_aam_maptool/web" / name).read_text(encoding="utf-8")
         text = text.replace("http://www.w3.org/2000/svg", "svg-namespace")
         assert "https://" not in text and "http://" not in text
+    web = ROOT / "ale_aam_maptool/web"
+    index = (web / "index.html").read_text(encoding="utf-8")
+    script = (web / "app.js").read_text(encoding="utf-8")
+    style = (web / "style.css").read_text(encoding="utf-8")
+    assert (web / "vendor/leaflet/leaflet.js").is_file()
+    assert (web / "vendor/leaflet/leaflet.css").is_file()
+    assert 'src="vendor/leaflet/leaflet.js"' in index
+    assert '<svg id="map"' not in index and '<div id="map"' in index
+    assert 'class="map-legend"' in index
+    assert index.index('id="mode-inspect"') < index.index('id="route-title"')
+    assert "state.view" not in script and "L.geoJSON" in script
+    assert ".waypoint-dot" in style and "width: 24px" in style
 
 
 def test_missing_scenario_is_structured_configuration_error(tmp_path):
