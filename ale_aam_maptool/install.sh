@@ -20,7 +20,7 @@ if ! "$PY" -m pip download --no-deps --no-index "$@" --dest "$PICK" ale-aam-mapt
   PLATFORM=$($PY -c 'import platform; print(f"{platform.system()} {platform.machine()}")')
   echo "No compatible ale-aam-maptool wheel was found for $PY_TAG on $PLATFORM." >&2
   echo "Download the matching prebuilt wheel and place it under dist/, then rerun install.sh." >&2
-  echo "macOS artifacts are named ale-aam-maptool-0.2.1-macos-wheels in the wheel CI." >&2
+  echo "macOS artifacts are named ale-aam-maptool-0.2.2-macos-wheels in the wheel CI." >&2
   exit 2
 fi
 WHEEL=$(find "$PICK" -maxdepth 1 -type f -name 'ale_aam_maptool-*.whl' -print -quit)

@@ -52,7 +52,7 @@ tests CPython 3.10-3.13 wheels for:
 - macOS Apple Silicon arm64
 
 The combined Mac artifact is named
-`ale-aam-maptool-0.2.1-macos-wheels`. Release wheels and wheelhouses are GitHub
+`ale-aam-maptool-0.2.2-macos-wheels`. Release wheels and wheelhouses are GitHub
 Actions artifacts and are not committed to Git.
 
 ## Local use
@@ -76,8 +76,8 @@ sh run.sh plan-all --scenario ./sample_scenario --outdir ./output
 ```
 
 The offline-first Web interface follows one primary workflow: load scenario/local
-data, inspect environment layers, draw or edit waypoints, and export one GeoJSON
-`LineString`. Start it with `serve`, open the printed local URL, and optionally
+data, inspect environment layers, automatically plan A/B/C or draw/edit waypoints,
+and export one GeoJSON `LineString`. Start it with `serve`, open the printed local URL, and optionally
 load [`data/hong_kong_airspace_20260724.zip`](data/hong_kong_airspace_20260724.zip)
 directly in the browser. The shipped LandsD snapshot and scenario layers work
 without OSM, a CDN, or any external request. Buildings, airspace and emergency

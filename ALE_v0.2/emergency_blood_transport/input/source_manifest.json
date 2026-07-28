@@ -1,6 +1,6 @@
 {
   "acquisition_date_utc": "2026-07-24",
-  "actual_derivation": "LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot",
+  "actual_derivation": "LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot",
   "authoritative_sources": [
     {
       "name": "LandsD 5 m DTM",
@@ -46,11 +46,11 @@
   "files": [
     {
       "path": "airspace_zones.geojson",
-      "sha256": "e051559f46b0c8e884be061a6a291506e89ab87fd5a78a0c1532190df53d5ab9"
+      "sha256": "4dd17d4aad0ea3e74b6495a313d28f5c394a0b41d58657ccf6be192400ac8f16"
     },
     {
       "path": "basemaps/hong_kong_landsd.manifest.json",
-      "sha256": "d36ba10134a69c71c26a242e803be68125ec414268dbd0205ac6fae88579135c"
+      "sha256": "f0d621d624a20fec8baeccc7c618776e84bf372e34a0ddfa729f2666fba7a3c8"
     },
     {
       "path": "basemaps/hong_kong_landsd.mbtiles",

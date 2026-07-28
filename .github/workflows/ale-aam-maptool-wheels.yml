@@ -60,7 +60,7 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          wheels = sorted(Path("macos-wheels").glob("ale_aam_maptool-0.2.1-*.whl"))
+          wheels = sorted(Path("macos-wheels").glob("ale_aam_maptool-0.2.2-*.whl"))
           names = [wheel.name for wheel in wheels]
           missing = []
           for version in ("310", "311", "312", "313"):
@@ -78,7 +78,7 @@ jobs:
           print("\n".join(names))
       - uses: actions/upload-artifact@v4
         with:
-          name: ale-aam-maptool-0.2.1-macos-wheels
+          name: ale-aam-maptool-0.2.2-macos-wheels
           path: macos-wheels/*.whl
           if-no-files-found: error
           retention-days: 30

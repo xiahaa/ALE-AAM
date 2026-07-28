@@ -1,4 +1,4 @@
-# ale-aam-maptool 0.2.1
+# ale-aam-maptool 0.2.2
 
 Deterministic, offline low-altitude route planning for the ALE benchmark.
 Platform-specific release wheels support CPython 3.10–3.13 on Windows x64,
@@ -19,7 +19,7 @@ guide: [USAGE.zh.md](USAGE.zh.md).
 - Ubuntu/macOS: place the wheelhouse beside the script, then run `sh install.sh`.
 
 The wheel workflow uploads one combined artifact named
-`ale-aam-maptool-0.2.1-macos-wheels`. It contains CPython 3.10-3.13 wheels for
+`ale-aam-maptool-0.2.2-macos-wheels`. It contains CPython 3.10-3.13 wheels for
 both Intel (`x86_64`) and Apple Silicon (`arm64`). Download the artifact, put
 the matching wheel under `dist/macos-arm64/` or `dist/macos-x86_64/`, and run
 `sh install.sh`. A maintainer who needs to bootstrap the first artifacts on a
@@ -53,8 +53,9 @@ The bound-scenario HTTP API is `/v1/health`, `/v1/scenario`, `/v1/preview`,
 `/v1/plan`, `/v1/plan-all`, and `/v1/validate`.
 The Web interface loads the bound DEM/weather/population rasters and original
 building/airspace/emergency GeoJSON vectors, supports local GeoJSON/ZIP overlays,
-inspects environment values, draws and edits fixed-pixel waypoints, and exports a
-GeoJSON `LineString`. The browser cannot request an arbitrary server path. For
+inspects environment values, plans one selected A/B/C route or all three routes,
+draws and edits fixed-pixel waypoints, and exports a GeoJSON `LineString`. The
+browser cannot request an arbitrary server path. For
 Hong Kong, the key-free live LandsD topographic provider is available without
 configuration. Formal ALE runs use the included scenario-local LandsD snapshot.
 

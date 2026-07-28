@@ -97,7 +97,7 @@ def building_snapshot(bounds,path,refresh):
         props["source"]="Hong Kong LandsD Building FeatureServer"
     features.sort(key=lambda f:int(f.get("properties",{}).get("OBJECTID",0)))
     data={"type":"FeatureCollection","features":features}
-    path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(data,separators=(",",":"),sort_keys=True),encoding="utf-8")
+    path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(data,separators=(",",":"),sort_keys=True),encoding="utf-8",newline="\n")
     return data
 
 
@@ -109,7 +109,7 @@ def census_snapshot(bounds,path,refresh):
             "outFields":"OBJECTID,stpug,t_pop,Shape__Area","orderByFields":"OBJECTID","f":"geojson"}
     response=requests.get(CENSUS_QUERY,params=params,timeout=180); response.raise_for_status(); data=response.json()
     data["features"]=sorted(data.get("features",[]),key=lambda f:int(f.get("properties",{}).get("OBJECTID",0)))
-    path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(data,separators=(",",":"),sort_keys=True),encoding="utf-8")
+    path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(data,separators=(",",":"),sort_keys=True),encoding="utf-8",newline="\n")
     return data
 
 
@@ -190,7 +190,7 @@ def update_manifest(task,dtm_archive,building_raw,wind_raw,census_raw,weather_me
             "status":"authoritative bounded offline visualization snapshot",
         }
     manifest["files"]=[{"path":p.relative_to(gis).as_posix(),"sha256":digest(p)} for p in sorted(gis.rglob("*")) if p.is_file()]
-    manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8")
+    manifest_path.write_text(json.dumps(manifest,ensure_ascii=False,indent=2,sort_keys=True)+"\n",encoding="utf-8",newline="\n")
 
 
 def main():
@@ -207,7 +207,7 @@ def main():
         wind_raw=snapshots/"hko_wind_2026-07-24.csv"; fetch(HKO_WIND,wind_raw,args.refresh)
         crop_dtm(dtm,bounds,task/"input/gis/dem.tif")
         buildings=building_snapshot(bounds,buildings_raw,args.refresh)
-        (task/"input/gis/buildings_3d.geojson").write_text(json.dumps(buildings,separators=(",",":"),sort_keys=True),encoding="utf-8")
+        (task/"input/gis/buildings_3d.geojson").write_text(json.dumps(buildings,separators=(",",":"),sort_keys=True),encoding="utf-8",newline="\n")
         census=census_snapshot(bounds,census_raw,args.refresh)
         write_population(task/"input/gis/dem.tif",census,task/"input/gis/population_density.tif")
         weather_meta=write_weather(task/"input/gis/dem.tif",wind_raw,task/"input/gis/weather_grid.tif")

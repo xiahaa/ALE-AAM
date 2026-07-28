@@ -74,7 +74,8 @@ def transform_geometry(geometry, old, new):
 
 def write_json(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                    encoding="utf-8", newline="\n")
 
 
 def sha(path):
@@ -201,7 +202,7 @@ def build():
         write_json(gis / "task.json", task_json(name, cfg))
         for filename, content in documents(name, cfg).items():
             path = root / "input" / filename; path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content.rstrip()+"\n", encoding="utf-8")
+            path.write_text(content.rstrip()+"\n", encoding="utf-8", newline="\n")
         data_files = sorted(p for p in gis.rglob("*") if p.is_file())
         manifest = {"schema_version":"1.0","operational_use":False,"generated_by":"scripts/build_tasks.py",
                     "actual_derivation":"deterministic affine transform of ALE_v0.1 fixtures onto corrected Hong Kong mission footprint; not authoritative Hong Kong GIS",

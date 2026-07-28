@@ -96,6 +96,13 @@ def test_versioned_bound_api_has_no_path_loader():
     assert landsd["min_zoom"] == 10 and landsd["max_zoom"] == 20
     assert "token" not in basemaps.text.lower()
     assert "access_token" not in basemaps.text.lower()
+    planned = client.post("/v1/plan", json={"route": "A", "densify_interval_m": 200})
+    assert planned.status_code == 200
+    assert planned.json()["feature"]["properties"]["route_name"] == "A"
+    assert planned.json()["metrics"]["n_waypoints"] >= 5
+    planned_all = client.post("/v1/plan-all")
+    assert planned_all.status_code == 200
+    assert set(planned_all.json()) == {"A", "B", "C"}
     paths = client.get("/openapi.json").json()["paths"]
     assert "/scenario/load" not in paths
     assert set(("/v1/health","/v1/scenario","/v1/preview","/v1/layers",
@@ -212,8 +219,10 @@ def test_web_assets_are_offline():
     assert 'src="vendor/leaflet/leaflet.js"' in index
     assert '<svg id="map"' not in index and '<div id="map"' in index
     assert 'class="map-legend"' in index
+    assert 'id="route-profile"' in index and 'id="auto-plan"' in index and 'id="plan-all"' in index
     assert index.index('id="mode-inspect"') < index.index('id="route-title"')
     assert "state.view" not in script and "L.geoJSON" in script
+    assert "request('/v1/plan'" in script and "request('/v1/plan-all'" in script
     assert ".waypoint-dot" in style and "width: 24px" in style
 
 

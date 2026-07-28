@@ -41,7 +41,19 @@
     </section>
 
     <section aria-labelledby="route-title">
-      <h2 id="route-title"><span>3</span> 绘制航线</h2>
+      <h2 id="route-title"><span>3</span> 规划与编辑航线</h2>
+      <div class="planner-controls">
+        <label for="route-profile">规划策略
+          <select id="route-profile" disabled>
+            <option>正在读取策略…</option>
+          </select>
+        </label>
+        <div class="planner-buttons">
+          <button id="auto-plan" type="button" class="primary" disabled>规划所选路线</button>
+          <button id="plan-all" type="button" disabled>规划 A/B/C</button>
+        </div>
+      </div>
+      <div id="plan-summary" class="plan-summary" aria-live="polite">选择策略后自动规划，结果仍可拖动和编辑。</div>
       <div class="mode-switch" role="group" aria-label="地图操作模式">
         <button id="mode-draw" type="button" aria-pressed="false">画航点</button>
         <button id="mode-pan" type="button" aria-pressed="false">平移</button>
@@ -64,7 +76,7 @@
       <span><i class="legend-building"></i>建筑</span>
       <span><i class="legend-airspace"></i>限制空域</span>
       <span><i class="legend-emergency"></i>应急点</span>
-      <span><i class="legend-route"></i>人工航线</span>
+      <span><i id="route-legend-swatch" class="legend-route"></i><b id="route-legend-label">当前航线</b></span>
     </div>
     <div class="map-help">滚轮或双击缩放 · 拖动地图平移 · 坐标顺序 [经度, 纬度]</div>
     <div id="basemap-attribution" class="map-attribution" aria-live="polite">ALE-AAM 场景数据</div>

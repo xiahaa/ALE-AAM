@@ -224,7 +224,8 @@ def create_pack(scenario_path: Path, output: Path, minimum: int, maximum: int,
         "sources": source_files,
     }
     manifest = output.with_suffix(".manifest.json")
-    manifest.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    manifest.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                        encoding="utf-8", newline="\n")
     return {**result, "scenario": str(scenario_path), "output": str(output), "manifest": str(manifest)}
 
 

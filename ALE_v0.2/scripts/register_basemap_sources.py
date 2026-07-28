@@ -80,7 +80,7 @@ def register(task: str) -> dict:
     os.close(handle)
     temporary = Path(temporary_name)
     try:
-        temporary.write_text(payload, encoding="utf-8")
+        temporary.write_text(payload, encoding="utf-8", newline="\n")
         os.replace(temporary, manifest_path)
     finally:
         if temporary.exists():

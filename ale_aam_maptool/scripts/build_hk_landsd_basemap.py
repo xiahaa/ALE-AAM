@@ -283,7 +283,7 @@ def create_pack(
     os.close(handle)
     temporary_manifest = Path(temporary_manifest_name)
     try:
-        temporary_manifest.write_text(manifest_text, encoding="utf-8")
+        temporary_manifest.write_text(manifest_text, encoding="utf-8", newline="\n")
         os.replace(temporary_manifest, manifest)
     finally:
         if temporary_manifest.exists():

@@ -1,4 +1,4 @@
-# ale-aam-maptool 0.2.1 与 ALE v0.2 详细使用手册
+# ale-aam-maptool 0.2.2 与 ALE v0.2 详细使用手册
 
 本文面向三类读者：
 
@@ -12,14 +12,14 @@
 
 ## 1. 功能与版本
 
-`ale-aam-maptool 0.2.1` 提供以下功能：
+`ale-aam-maptool 0.2.2` 提供以下功能：
 
 - 读取 DEM、三维建筑物、限制空域、人口、天气和应急点 GIS 图层。
 - 使用原生 JPS 后端生成 A、B、C 三种低空路线。
 - 导出带 AGL、MSL 高度及速度等属性的 GeoJSON。
 - 检查场景、预览规划栅格、校验公开输出格式和显式硬约束。
 - 提供稳定 CLI、版本化 HTTP API 和离线优先的 Web 界面；香港场景可直接使用官方地政总署在线或离线底图，本地演示也可选天地图/Mapbox。
-- Web 界面按“加载数据 → 查看环境 → 交互式画航线 → 导出 GeoJSON”工作，支持直接读取本地 GeoJSON 和包含未压缩 GeoJSON 的 ZIP。
+- Web 界面按“加载数据 → 查看环境 → 自动规划或交互式画航线 → 导出 GeoJSON”工作，支持直接读取本地 GeoJSON 和包含未压缩 GeoJSON 的 ZIP。
 - 使用平台 wheel 安装，普通用户不需要 C++ 编译器、MSVC、Homebrew、apt、sudo。
 
 支持范围：
@@ -204,7 +204,7 @@ wheel 文件名中的 `cp310`、`cp311`、`cp312`、`cp313` 分别对应 Python 
 - 完全离线包：把 `ale_aam_maptool` 和所有依赖 wheel 放在 `wheelhouse/`。安装脚本使用 `--no-index`，不会访问 PyPI。
 - 普通发布包：把与当前平台匹配的 `ale_aam_maptool` wheel 放在 `dist/` 或 `dist/` 的一级子目录。安装器可从 PyPI 获取声明的 Python 依赖。
 
-正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.2.1` wheel 及所有依赖。
+正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.2.2` wheel 及所有依赖。
 
 ## 4. 三平台安装
 
@@ -263,7 +263,7 @@ sh run.sh doctor --json
 Intel Python、Rosetta x86_64 Python 和 arm64 Python 不能混用 wheel。遇到 `incompatible architecture` 时，应更换 Python 或 wheel，不要尝试在用户机器上编译原生扩展。
 
 正式 wheel 由 GitHub Actions 的 `ale-aam-maptool cross-platform wheels`
-工作流生成。下载名为 `ale-aam-maptool-0.2.1-macos-wheels` 的 artifact，解压后根据
+工作流生成。下载名为 `ale-aam-maptool-0.2.2-macos-wheels` 的 artifact，解压后根据
 Python 和架构选择一个 wheel：
 
 ```text
@@ -280,7 +280,7 @@ Python 3.13 + Apple Silicon cp313-...-arm64.whl
 将匹配的 wheel 放到对应目录，例如：
 
 ```text
-dist/macos-arm64/ale_aam_maptool-0.2.1-cp312-...-arm64.whl
+dist/macos-arm64/ale_aam_maptool-0.2.2-cp312-...-arm64.whl
 ```
 
 然后运行：
@@ -326,7 +326,7 @@ sh run.sh doctor --json
   "offline_web": true,
   "ok": true,
   "python_supported": true,
-  "version": "0.2.1"
+  "version": "0.2.2"
 }
 ```
 
@@ -801,10 +801,11 @@ Web 界面可以：
 - 显示 z12-z17 香港官方离线底图以及绑定场景的 DEM、建筑、空域、气象、人口和应急点。
 - 保持建筑、空域、应急点为矢量图形，并在所有缩放级别保持航点、文字和线宽的可读尺寸。
 - 点击地图或输入经纬度查看环境属性；在浏览器内导入 GeoJSON/未压缩 GeoJSON ZIP。
+- 选择 A/B/C 策略后规划单条路线，或一次规划三条路线；显示距离、时间、能耗和航点数。
 - 交互式添加、拖动、删除航点，设置 AGL 高度和速度。
-- 导出当前人工航线为 `ale-aam-route.geojson` GeoJSON `Feature/LineString`。
+- 自动路线可直接导出为 `route_a.geojson`、`route_b.geojson` 或 `route_c.geojson`；人工路线导出为 `ale-aam-route.geojson`。
 
-Web 导出的人工 LineString 主要用于查看、标注和演示，不等同于 ALE 要求的六份独立交付物。正式任务仍应使用 CLI 生成 `route_a.geojson`、`route_b.geojson`、`route_c.geojson`。
+Web 自动规划调用与 CLI 相同的原生 JPS 后端。拖动或修改自动路线后，界面会标记为“已编辑”并清除旧指标。Web 一次只导出当前路线，不等同于 ALE 要求的全部六份交付物；正式任务仍建议使用 CLI `plan-all` 生成三条路线并补齐其余文件。
 
 Leaflet、页面资源、字体、样式、脚本和默认地政总署快照均来自本地，不使用 CDN 或追踪服务。选择实时地政总署/天地图/Mapbox 时，只有后端瓦片代理访问供应商，浏览器不会接收供应商密钥。服务只能访问启动时绑定的场景，不接受网页传入任意服务器目录。在线底图失败时页面自动回退到离线场景图层。
 

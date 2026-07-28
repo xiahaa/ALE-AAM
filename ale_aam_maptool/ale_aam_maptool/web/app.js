@@ -16,6 +16,12 @@ const state = {
   selectedWaypoint: null,
   waypointMarkers: [],
   routeLayer: null,
+  activeRoute: 'MANUAL',
+  routeSource: 'manual',
+  routeMetrics: null,
+  currentFeature: null,
+  plannedRoutes: new Map(),
+  planning: false,
   locationMarker: null,
   localLayers: [],
 };
@@ -307,9 +313,148 @@ function resetRoute() {
   const mission = state.scenario.mission;
   state.waypoints = [waypointDefaults(mission.start), waypointDefaults(mission.goal)];
   state.selectedWaypoint = 0;
+  state.activeRoute = 'MANUAL';
+  state.routeSource = 'manual';
+  state.routeMetrics = null;
+  state.currentFeature = null;
   renderDraft();
   Promise.all([sampleWaypoint(0), sampleWaypoint(1)]).then(renderWaypointList);
+  renderPlanSummary();
   setStatus('已载入任务起点和终点；切换到“画航点”后点击地图添加中间航点。');
+}
+
+const objectiveLabels = {
+  shortest_direct: '最短直达',
+  conservative_safety: '双倍净空 / 保守安全',
+  low_noise: '低噪声',
+  wind_energy_optimized: '风场 / 能耗优化',
+  time_optimal: '时间最优',
+};
+
+function initializeRouteProfiles() {
+  const select = $('route-profile');
+  select.textContent = '';
+  for (const route of ['A', 'B', 'C']) {
+    const profile = state.scenario.route_profiles[route];
+    const option = document.createElement('option');
+    option.value = route;
+    option.textContent = `${route} · ${objectiveLabels[profile.objective] || profile.objective}`;
+    select.appendChild(option);
+  }
+  select.disabled = false;
+  $('auto-plan').disabled = false;
+  $('plan-all').disabled = false;
+  renderPlanSummary();
+}
+
+function routeColor(route) {
+  return {A: '#22d3ee', B: '#34d399', C: '#c084fc'}[route] || '#f59e0b';
+}
+
+function renderPlanSummary() {
+  const box = $('plan-summary');
+  const route = state.activeRoute;
+  $('route-legend-label').textContent = route === 'MANUAL' ? '人工航线' : `路线 ${route}`;
+  $('route-legend-swatch').style.borderColor = routeColor(route);
+  if (state.routeMetrics) {
+    const metrics = state.routeMetrics;
+    const distance = (Number(metrics.total_distance_m) / 1000).toFixed(2);
+    const duration = (Number(metrics.estimated_duration_s) / 60).toFixed(1);
+    const energy = Number(metrics.estimated_energy_wh).toFixed(1);
+    box.innerHTML = `<strong>路线 ${escapeHtml(route)}</strong> · ${distance} km · ${duration} min · ${energy} Wh · ${state.waypoints.length} 航点`;
+    return;
+  }
+  if (state.routeSource === 'edited') {
+    box.innerHTML = `<strong>路线 ${escapeHtml(route)}（已编辑）</strong> · 自动规划指标已失效，可直接导出或重新规划。`;
+    return;
+  }
+  const selected = $('route-profile').value || 'A';
+  const profile = state.scenario?.route_profiles?.[selected];
+  const label = profile ? objectiveLabels[profile.objective] || profile.objective : '';
+  box.textContent = `当前为人工航线。可选择 ${selected}${label ? `（${label}）` : ''} 后自动规划。`;
+}
+
+function markRouteEdited() {
+  if (state.activeRoute !== 'MANUAL') state.routeSource = 'edited';
+  state.routeMetrics = null;
+  state.currentFeature = null;
+  renderPlanSummary();
+}
+
+function setPlanning(active) {
+  state.planning = active;
+  $('route-profile').disabled = active;
+  $('auto-plan').disabled = active;
+  $('plan-all').disabled = active;
+  $('auto-plan').textContent = active ? '规划中…' : '规划所选路线';
+}
+
+function applyPlannedRoute(result, route, message) {
+  const feature = result.feature;
+  const coordinates = feature?.geometry?.coordinates;
+  if (feature?.geometry?.type !== 'LineString' || !Array.isArray(coordinates) || coordinates.length < 2) {
+    throw new Error('规划服务返回了无效的 LineString。');
+  }
+  const properties = feature.properties || {};
+  const plannedWaypoints = Array.isArray(properties.waypoints) ? properties.waypoints : [];
+  state.waypoints = coordinates.map((coordinate, index) => {
+    const metadata = plannedWaypoints[index] || {};
+    const altitude = Number(metadata.altitude_m_agl ?? state.scenario.route_profiles[route].cruise_agl_m);
+    const speed = Number(metadata.speed_ms ?? state.scenario.route_profiles[route].speed_ms);
+    const msl = Number(metadata.altitude_m_msl);
+    return {
+      coordinate: [Number(coordinate[0]), Number(coordinate[1])],
+      altitude,
+      speed,
+      terrain: Number.isFinite(msl) ? msl - altitude : null,
+    };
+  });
+  state.activeRoute = route;
+  state.routeSource = 'automatic';
+  state.routeMetrics = result.metrics || null;
+  state.currentFeature = JSON.parse(JSON.stringify(feature));
+  state.selectedWaypoint = 0;
+  setMode('pan');
+  renderDraft();
+  renderPlanSummary();
+  if (state.routeLayer && state.routeLayer.getBounds().isValid()) {
+    state.map.fitBounds(state.routeLayer.getBounds(), {padding: [40, 40], animate: false});
+  }
+  setStatus(message);
+}
+
+async function planSelectedRoute() {
+  const route = $('route-profile').value;
+  setPlanning(true);
+  setStatus(`正在规划路线 ${route}…`);
+  try {
+    const result = await request('/v1/plan', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({route, densify_interval_m: 200}),
+    });
+    state.plannedRoutes.set(route, result);
+    applyPlannedRoute(result, route, `路线 ${route} 规划完成；可拖动航点继续编辑，或直接导出 GeoJSON。`);
+  } catch (error) {
+    setStatus(`路线 ${route} 规划失败：${error.message}`, true);
+  } finally {
+    setPlanning(false);
+  }
+}
+
+async function planAll() {
+  const selected = $('route-profile').value;
+  setPlanning(true);
+  setStatus('正在规划 A/B/C 三条路线…');
+  try {
+    const results = await request('/v1/plan-all', {method: 'POST'});
+    for (const route of ['A', 'B', 'C']) state.plannedRoutes.set(route, results[route]);
+    applyPlannedRoute(results[selected], selected, 'A/B/C 三条路线均已规划；切换策略可查看缓存结果。');
+  } catch (error) {
+    setStatus(`A/B/C 规划失败：${error.message}`, true);
+  } finally {
+    setPlanning(false);
+  }
 }
 
 function renderWaypointList() {
@@ -333,6 +478,7 @@ function renderWaypointList() {
       remove.addEventListener('click', () => {
         state.waypoints.splice(index, 1);
         state.selectedWaypoint = null;
+        markRouteEdited();
         renderDraft();
       });
       head.appendChild(remove);
@@ -347,7 +493,10 @@ function renderWaypointList() {
     altitude.max = state.scenario.constraints.altitude_m_agl.max;
     altitude.step = '1';
     altitude.value = waypoint.altitude;
-    altitude.addEventListener('change', () => { waypoint.altitude = Number(altitude.value); });
+    altitude.addEventListener('change', () => {
+      waypoint.altitude = Number(altitude.value);
+      markRouteEdited();
+    });
     altitudeLabel.appendChild(altitude);
     const speedLabel = document.createElement('label');
     speedLabel.textContent = '速度 m/s';
@@ -357,7 +506,10 @@ function renderWaypointList() {
     speed.max = state.scenario.constraints.speed_ms.max;
     speed.step = '0.5';
     speed.value = waypoint.speed;
-    speed.addEventListener('change', () => { waypoint.speed = Number(speed.value); });
+    speed.addEventListener('change', () => {
+      waypoint.speed = Number(speed.value);
+      markRouteEdited();
+    });
     speedLabel.appendChild(speed);
     fields.append(altitudeLabel, speedLabel);
     item.append(head, fields);
@@ -384,11 +536,13 @@ function waypointIcon(index) {
 
 function updateRouteLine() {
   const latlngs = state.waypoints.map(item => toLatLng(item.coordinate));
+  const color = routeColor(state.activeRoute);
   if (!state.routeLayer) {
-    state.routeLayer = L.polyline(latlngs, {color: '#22d3ee', weight: 4, opacity: 0.95,
+    state.routeLayer = L.polyline(latlngs, {color, weight: 4, opacity: 0.95,
       renderer: state.vectorRenderer, bubblingMouseEvents: false}).addTo(state.map);
   } else {
     state.routeLayer.setLatLngs(latlngs);
+    state.routeLayer.setStyle({color});
   }
 }
 
@@ -415,6 +569,7 @@ function renderDraft() {
     marker.on('dragend', async event => {
       waypoint.coordinate = toCoordinate(event.target.getLatLng());
       await sampleWaypoint(index);
+      markRouteEdited();
       renderDraft();
     });
     return marker;
@@ -426,6 +581,7 @@ function addWaypoint(coordinate) {
   const index = Math.max(1, state.waypoints.length - 1);
   state.waypoints.splice(index, 0, waypointDefaults(coordinate));
   state.selectedWaypoint = index;
+  markRouteEdited();
   renderDraft();
   sampleWaypoint(index).then(renderWaypointList);
 }
@@ -515,12 +671,15 @@ async function importFile(file) {
 }
 
 function exportRoute() {
+  if (state.routeSource === 'automatic' && state.currentFeature) {
+    downloadFeature(state.currentFeature, `route_${state.activeRoute.toLowerCase()}.geojson`);
+    setStatus(`已导出自动规划路线 ${state.activeRoute}，共 ${state.waypoints.length} 个航点。`);
+    return;
+  }
   const coordinates = state.waypoints.map(waypoint => waypoint.coordinate.map(value => Number(value.toFixed(7))));
   const waypoints = state.waypoints.map((waypoint, index) => {
     const item = {
-      sequence: index + 1,
-      longitude: coordinates[index][0],
-      latitude: coordinates[index][1],
+      index,
       altitude_m_agl: Number(waypoint.altitude),
       speed_ms: Number(waypoint.speed),
     };
@@ -534,19 +693,30 @@ function exportRoute() {
     geometry: {type: 'LineString', coordinates},
     properties: {
       schema_version: '2.0',
-      route_name: 'MANUAL',
+      route_name: state.activeRoute,
       coordinate_order: '[longitude, latitude]',
       created_by: 'ALE-AAM interactive editor',
+      edited_manually: state.routeSource === 'edited',
       waypoints,
     },
   };
+  const profile = state.scenario.route_profiles[state.activeRoute];
+  if (profile) {
+    feature.properties.strategy = profile.strategy;
+    feature.properties.objective = profile.objective;
+  }
+  const filename = state.activeRoute === 'MANUAL' ? 'ale-aam-route.geojson' : `route_${state.activeRoute.toLowerCase()}.geojson`;
+  downloadFeature(feature, filename);
+  setStatus(`已导出 ${state.waypoints.length} 个航点的 GeoJSON LineString。`);
+}
+
+function downloadFeature(feature, filename) {
   const url = URL.createObjectURL(new Blob([JSON.stringify(feature, null, 2)], {type: 'application/geo+json'}));
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'ale-aam-route.geojson';
+  link.download = filename;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setStatus(`已导出 ${waypoints.length} 个航点的 GeoJSON LineString。`);
 }
 
 function bindEvents() {
@@ -554,6 +724,13 @@ function bindEvents() {
   $('mode-inspect').addEventListener('click', () => setMode('inspect'));
   $('mode-draw').addEventListener('click', () => setMode('draw'));
   $('mode-pan').addEventListener('click', () => setMode('pan'));
+  $('auto-plan').addEventListener('click', planSelectedRoute);
+  $('plan-all').addEventListener('click', planAll);
+  $('route-profile').addEventListener('change', event => {
+    const cached = state.plannedRoutes.get(event.target.value);
+    if (cached) applyPlannedRoute(cached, event.target.value, `已切换到缓存的路线 ${event.target.value}。`);
+    else renderPlanSummary();
+  });
   $('reset-route').addEventListener('click', resetRoute);
   $('reset-view').addEventListener('click', resetView);
   $('export').addEventListener('click', exportRoute);
@@ -599,6 +776,7 @@ async function initialize() {
     bindEvents();
     setMode('inspect');
     state.scenario = await request('/v1/scenario');
+    initializeRouteProfiles();
     state.scenarioBounds = scenarioLeafletBounds();
     resetView();
     renderScenarioLayers();
