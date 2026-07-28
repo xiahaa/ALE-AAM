@@ -37,10 +37,14 @@ def _bound():
 
 def _summary(sc):
     west, south, east, north = sc.lonlat_bounds()
+    extent = {"west": west, "south": south, "east": east, "north": north}
+    planning_extent = dict(sc.task.get("planning_extent") or {})
+    planning_extent.setdefault("bounds_wgs84", [west, south, east, north])
+    planning_extent["grid_bounds_wgs84"] = [west, south, east, north]
     return {"schema_version": sc.task["schema_version"], "mission": sc.task["mission"],
             "route_profiles": sc.task["route_profiles"], "shape": list(sc.grid.shape),
             "resolution_m": sc.grid.resolution, "crs": str(sc.grid.crs),
-            "extent": {"west": west, "south": south, "east": east, "north": north},
+            "extent": extent, "planning_extent": planning_extent,
             "constraints": sc.task["constraints"], "aircraft": sc.task["aircraft"],
             "layers": sc.layer_catalog(),
             "buildings_cells": int(sc.buildings_mask.sum()), "airspace_cells": int(sc.airspace_mask.sum())}

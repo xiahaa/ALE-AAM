@@ -2,7 +2,9 @@
 
 Network is used only by this authoring script, never by an ALE agent. Raw API
 responses are stored under each task's ``input/source_snapshots`` and subsequent
-runs reuse them unless ``--refresh`` is passed. Run
+runs reuse them unless the matching refresh flag is passed. The whole-Hong-Kong
+DTM is retained only in the ignored authoring cache; distributed task data is
+clipped to ``task.json.planning_extent``. Run
 ``import_hk_airspace_snapshot.py`` afterwards to restore the hash-pinned RFZ
 clip; its redistribution terms remain explicitly pending.
 """
@@ -15,15 +17,18 @@ import io
 import json
 import math
 import time
+import warnings
 import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import numpy as np
 import rasterio
-import requests
 from pyproj import Transformer
-from rasterio.windows import from_bounds
+from rasterio.windows import Window, from_bounds
 from rasterio.warp import transform_bounds
 from rasterio.features import rasterize
 from shapely.geometry import shape
@@ -34,6 +39,7 @@ DTM_URL = "https://www.landsd.gov.hk/landsd_psi_data/SMO/data/Whole_HK_DTM_5m.zi
 BUILDING_QUERY = "https://portal.csdi.gov.hk/server/rest/services/common/landsd_rcd_1637211194312_35158/FeatureServer/0/query"
 HKO_WIND = "https://data.weather.gov.hk/weatherAPI/hko_data/regional-weather/latest_10min_wind.csv"
 CENSUS_QUERY = "https://portal.csdi.gov.hk/server/rest/services/common/censtatd_rcd_1635933193720_58660/FeatureServer/0/query"
+USER_AGENT = "ALE-AAM source authoring/0.3"
 
 
 def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
@@ -45,15 +51,29 @@ def fetch(url, path, refresh=False):
     last=None
     for attempt in range(3):
         try:
-            response=requests.get(url,timeout=(30,300),stream=True); response.raise_for_status()
             temporary=path.with_suffix(path.suffix+".part")
-            with temporary.open("wb") as output:
-                for chunk in response.iter_content(1024*1024):
-                    if chunk: output.write(chunk)
+            request=Request(url,headers={"User-Agent":USER_AGENT,"Accept":"*/*"})
+            with urlopen(request,timeout=300) as response, temporary.open("wb") as output:
+                while chunk := response.read(1024*1024): output.write(chunk)
             temporary.replace(path); return
-        except requests.RequestException as exc:
+        except (HTTPError,URLError,OSError,TimeoutError) as exc:
             last=exc; time.sleep(2**attempt)
     raise RuntimeError(f"download failed after three attempts: {url}: {last}")
+
+
+def query_json(url,params):
+    target=f"{url}?{urlencode(params)}"
+    last=None
+    for attempt in range(3):
+        try:
+            request=Request(target,headers={"User-Agent":USER_AGENT,"Accept":"application/json"})
+            with urlopen(request,timeout=180) as response:
+                data=json.loads(response.read())
+            if "error" in data: raise RuntimeError(json.dumps(data["error"],ensure_ascii=False))
+            return data
+        except (HTTPError,URLError,OSError,TimeoutError,RuntimeError,json.JSONDecodeError) as exc:
+            last=exc; time.sleep(2**attempt)
+    raise RuntimeError(f"query failed after three attempts: {url}: {last}")
 
 
 def dtm_source(cache, refresh):
@@ -72,7 +92,14 @@ def crop_dtm(source,bounds,target):
     xs,ys=zip(*(to_hk.transform(x,y) for x,y in ((west,south),(west,north),(east,south),(east,north))))
     with rasterio.open(source) as src:
         window=from_bounds(min(xs),min(ys),max(xs),max(ys),src.transform).round_offsets().round_lengths()
-        data=src.read(1,window=window,boundless=True,fill_value=src.nodata if src.nodata is not None else -9999).astype("float32")
+        window=window.intersection(Window(0,0,src.width,src.height))
+        window=Window(int(window.col_off),int(window.row_off),int(window.width),int(window.height))
+        # Rasterio <= 1.4 sets ndarray.shape internally while reading a
+        # window; NumPy 2.5 deprecates that implementation detail.  The
+        # resulting array is correct, so silence only this upstream warning.
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore",message="Setting the shape on a NumPy array has been deprecated")
+            data=src.read(1,window=window,out_dtype="float32")
         transform=src.window_transform(window)
     profile={"driver":"GTiff","height":data.shape[0],"width":data.shape[1],"count":1,"dtype":"float32",
              "crs":"EPSG:2326","transform":transform,"nodata":-9999.0,"compress":"deflate","predictor":3}
@@ -86,7 +113,7 @@ def building_snapshot(bounds,path,refresh):
         params={"where":"1=1","geometry":f"{west},{south},{east},{north}","geometryType":"esriGeometryEnvelope",
                 "inSR":4326,"outSR":4326,"spatialRel":"esriSpatialRelIntersects","returnGeometry":"true",
                 "outFields":"*","orderByFields":"OBJECTID","resultOffset":offset,"resultRecordCount":3000,"f":"geojson"}
-        response=requests.get(BUILDING_QUERY,params=params,timeout=180); response.raise_for_status(); page=response.json()
+        page=query_json(BUILDING_QUERY,params)
         batch=page.get("features",[]); features.extend(batch)
         if len(batch)<3000: break
         offset+=len(batch)
@@ -107,7 +134,7 @@ def census_snapshot(bounds,path,refresh):
     params={"where":"1=1","geometry":f"{west},{south},{east},{north}","geometryType":"esriGeometryEnvelope",
             "inSR":4326,"outSR":4326,"spatialRel":"esriSpatialRelIntersects","returnGeometry":"true",
             "outFields":"OBJECTID,stpug,t_pop,Shape__Area","orderByFields":"OBJECTID","f":"geojson"}
-    response=requests.get(CENSUS_QUERY,params=params,timeout=180); response.raise_for_status(); data=response.json()
+    data=query_json(CENSUS_QUERY,params)
     data["features"]=sorted(data.get("features",[]),key=lambda f:int(f.get("properties",{}).get("OBJECTID",0)))
     path.parent.mkdir(parents=True,exist_ok=True); path.write_text(json.dumps(data,separators=(",",":"),sort_keys=True),encoding="utf-8",newline="\n")
     return data
@@ -147,20 +174,26 @@ def write_weather(dtm_path,csv_path,target):
     return {"snapshot_time":rows[0].get("Date time"),"station_count":len(speeds),"mean_wind_ms":round(float(np.mean(speeds)),4)}
 
 
-def update_manifest(task,dtm_archive,building_raw,wind_raw,census_raw,weather_meta):
+def update_manifest(task,dtm_archive,building_raw,wind_raw,census_raw,weather_meta,planning_extent):
     manifest_path=task/"input/source_manifest.json"; manifest=json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["actual_derivation"]="LandsD 5 m DTM crop, building-height API snapshot, bounded topographic-map snapshot, fixed-date user-provided RFZ snapshot, 2021 Census STPU density raster, and HKO wind snapshot"
     manifest["acquisition_date_utc"]="2026-07-24"
     manifest["crs"]="EPSG:4326 for vectors; EPSG:2326 for authoritative rasters; the tool reprojects with always_xy=True to the mission's local UTM zone"
     manifest["conversion_steps"]=[
-        "crop the LandsD 5 m DTM in EPSG:2326 without row reversal",
-        "query LandsD buildings and derive height_m as TopHeight minus BaseHeight",
-        "rasterize 2021 Census STPU persons per square kilometre onto the DTM grid",
+        "derive a deterministic 2 km mission-corridor planning extent in EPSG:2326",
+        "crop the whole-Hong-Kong LandsD 5 m DTM to the declared planning extent without row reversal",
+        "query and clip LandsD buildings to the declared planning extent, then derive height_m as TopHeight minus BaseHeight",
+        "query and rasterize 2021 Census STPU persons per square kilometre onto the bounded DTM grid",
         "write the observed HKO station-mean wind speed onto the DTM grid without invented station coordinates",
         "record raw snapshots and SHA-256 for every distributed GIS file",
         "download a bounded, rate-limited LandsD topographic XYZ snapshot for offline visualization",
     ]
     manifest["generated_by"]="scripts/build_tasks.py + scripts/refresh_official_sources.py"
+    manifest["planning_extent"]={
+        **planning_extent,
+        "source_cache":"whole-Hong-Kong authoring sources retained under ignored ALE_v0.2/.source-cache",
+        "distributed_scope":"only the bounded, task-specific derived layers are distributed",
+    }
     manifest.pop("authoritative_replacement_sources",None)
     manifest["authoritative_sources"]=[
         {"name":"LandsD 5 m DTM","url":"https://data.gov.hk/en-data/dataset/hk-landsd-openmap-5m-grid-dtm","status":"authoritative snapshot crop distributed as gis/dem.tif"},
@@ -194,24 +227,33 @@ def update_manifest(task,dtm_archive,building_raw,wind_raw,census_raw,weather_me
 
 
 def main():
-    parser=argparse.ArgumentParser(); parser.add_argument("--cache-dir",type=Path,default=ROOT/".source-cache"); parser.add_argument("--refresh",action="store_true")
-    args=parser.parse_args(); archive,dtm=dtm_source(args.cache_dir,args.refresh)
+    parser=argparse.ArgumentParser()
+    parser.add_argument("--cache-dir",type=Path,default=ROOT/".source-cache")
+    parser.add_argument("--refresh",action="store_true",help="refresh DTM, vectors, and weather")
+    parser.add_argument("--refresh-dtm",action="store_true")
+    parser.add_argument("--refresh-vectors",action="store_true")
+    parser.add_argument("--refresh-weather",action="store_true")
+    args=parser.parse_args(); archive,dtm=dtm_source(args.cache_dir,args.refresh or args.refresh_dtm)
     for task in (p for p in ROOT.iterdir() if p.is_dir() and (p/"input/gis/task.json").exists()):
-        cfg=json.loads((task/"input/gis/task.json").read_text()); bounds=[]
-        # Use existing fixture extent, already the reviewed mission footprint.
-        with rasterio.open(task/"input/gis/dem.tif") as old:
-            bounds=list(transform_bounds(old.crs,"EPSG:4326",*old.bounds,densify_pts=21))
+        cfg=json.loads((task/"input/gis/task.json").read_text(encoding="utf-8"))
+        planning_extent=cfg.get("planning_extent") or {}
+        bounds=planning_extent.get("bounds_wgs84")
+        if not isinstance(bounds,list) or len(bounds)!=4:
+            with rasterio.open(task/"input/gis/dem.tif") as old:
+                bounds=list(transform_bounds(old.crs,"EPSG:4326",*old.bounds,densify_pts=21))
+            planning_extent={"bounds_wgs84":bounds,"corridor_buffer_m":None,
+                             "outside_behavior":"visual_basemap_only"}
         snapshots=task/"input/source_snapshots"; snapshots.mkdir(parents=True,exist_ok=True)
         buildings_raw=snapshots/"landsd_buildings_2026-07-24.geojson"
         census_raw=snapshots/"census_2021_stpu.geojson"
-        wind_raw=snapshots/"hko_wind_2026-07-24.csv"; fetch(HKO_WIND,wind_raw,args.refresh)
+        wind_raw=snapshots/"hko_wind_2026-07-24.csv"; fetch(HKO_WIND,wind_raw,args.refresh or args.refresh_weather)
         crop_dtm(dtm,bounds,task/"input/gis/dem.tif")
-        buildings=building_snapshot(bounds,buildings_raw,args.refresh)
+        buildings=building_snapshot(bounds,buildings_raw,args.refresh or args.refresh_vectors)
         (task/"input/gis/buildings_3d.geojson").write_text(json.dumps(buildings,separators=(",",":"),sort_keys=True),encoding="utf-8",newline="\n")
-        census=census_snapshot(bounds,census_raw,args.refresh)
+        census=census_snapshot(bounds,census_raw,args.refresh or args.refresh_vectors)
         write_population(task/"input/gis/dem.tif",census,task/"input/gis/population_density.tif")
         weather_meta=write_weather(task/"input/gis/dem.tif",wind_raw,task/"input/gis/weather_grid.tif")
-        update_manifest(task,archive,buildings_raw,wind_raw,census_raw,weather_meta)
+        update_manifest(task,archive,buildings_raw,wind_raw,census_raw,weather_meta,planning_extent)
 
 
 if __name__=="__main__": main()

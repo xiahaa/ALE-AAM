@@ -1,6 +1,6 @@
 {
   "acquisition_date_utc": "2026-07-24",
-  "actual_derivation": "LandsD 5 m DTM crop, LandsD building-height API snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot",
+  "actual_derivation": "LandsD 5 m DTM crop, building-height API snapshot, bounded topographic-map snapshot, fixed-date user-provided RFZ snapshot, 2021 Census STPU density raster, and HKO wind snapshot; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot",
   "authoritative_sources": [
     {
       "name": "LandsD 5 m DTM",
@@ -34,35 +34,36 @@
     }
   ],
   "conversion_steps": [
-    "crop the LandsD 5 m DTM in EPSG:2326 without row reversal",
-    "query LandsD buildings and derive height_m as TopHeight minus BaseHeight",
-    "rasterize 2021 Census STPU persons per square kilometre onto the DTM grid",
+    "derive a deterministic 2 km mission-corridor planning extent in EPSG:2326",
+    "crop the whole-Hong-Kong LandsD 5 m DTM to the declared planning extent without row reversal",
+    "query and clip LandsD buildings to the declared planning extent, then derive height_m as TopHeight minus BaseHeight",
+    "query and rasterize 2021 Census STPU persons per square kilometre onto the bounded DTM grid",
     "write the observed HKO station-mean wind speed onto the DTM grid without invented station coordinates",
     "record raw snapshots and SHA-256 for every distributed GIS file",
-    "verify the supplied archive SHA-256, repair polygon topology, clip RFZs to the DEM extent, and sort deterministically",
-    "download a bounded, rate-limited LandsD topographic XYZ snapshot for offline visualization"
+    "download a bounded, rate-limited LandsD topographic XYZ snapshot for offline visualization",
+    "verify the supplied archive SHA-256, repair polygon topology, clip RFZs to the DEM extent, and sort deterministically"
   ],
   "crs": "EPSG:4326 for vectors; EPSG:2326 for authoritative rasters; the tool reprojects with always_xy=True to the mission's local UTM zone",
   "files": [
     {
       "path": "airspace_zones.geojson",
-      "sha256": "4923c48316f50478a02afd70843a7ee85b2133136ea524cf1a5cbe383fcde000"
+      "sha256": "db947f4377478ed7ba50809381c9d8e963efaec2a851934008462b192b6dc456"
     },
     {
       "path": "basemaps/hong_kong_landsd.manifest.json",
-      "sha256": "30ff745144354e4ccde7eb844761fd0557e139c9f2453e6d5a3ecac4beac5a6c"
+      "sha256": "e7f73661f5cfb2c3f579c12c82bcf6c88dc5f6807390394ee727226c86280ef5"
     },
     {
       "path": "basemaps/hong_kong_landsd.mbtiles",
-      "sha256": "406ce4837c2e1f6d274d916fb29d8d742ec1d09bf9fac19605779f3edd2f3af1"
+      "sha256": "69f49e9fe56ab59d89c1ae71c29159b8f546f81a2692e0d4c44249149d6f2ef4"
     },
     {
       "path": "buildings_3d.geojson",
-      "sha256": "5c02b55c09a0f4207412394065ecb9094ca81d09f3fa1edd7c557cb2b54cb05b"
+      "sha256": "7cc16cb253743d697570076048d80d63cc62de4ba180cc26005aceb9bfd7752f"
     },
     {
       "path": "dem.tif",
-      "sha256": "13fa580be7474088dbb6b1b181a3adf96881613f2b56a2000a451aa5322b995c"
+      "sha256": "e2bbd7b4fbebe2919c30ad6deefb3554f6a56c93ef1bd9a20d9b0d08f9db47e2"
     },
     {
       "path": "emergency_sites.geojson",
@@ -70,22 +71,22 @@
     },
     {
       "path": "population_density.tif",
-      "sha256": "fb012c313b6edc9b96b207c049de381be844ab9a99706656785d52ef9b832924"
+      "sha256": "c4481c3339586e0aed5eb53240897f69455a20732e2a5268c4d3fed7176a98d9"
     },
     {
       "path": "task.json",
-      "sha256": "9e1399a6612401279ac97dd7a02f355829ce6636fc196ae7150afd043186ebb5"
+      "sha256": "9b59b165f97859f1f3d72e92a74ab35bbcaacff833fa343384c0679923cfe50f"
     },
     {
       "path": "weather_grid.tif",
-      "sha256": "bd009e633f3601c1066883efba542cb29121302a7e39a7ab99f782d9314b1390"
+      "sha256": "f59bce185e0c3f8689deeb363b5b843de0ab4974a212246367ebb4fa75a9d653"
     }
   ],
   "generated_by": "scripts/build_tasks.py + scripts/refresh_official_sources.py + scripts/import_hk_airspace_snapshot.py + ale_aam_maptool/scripts/build_hk_landsd_basemap.py",
   "layer_provenance": {
     "airspace_zones.geojson": {
       "crs": "EPSG:4326",
-      "feature_count": 9,
+      "feature_count": 15,
       "license": "Source redistribution terms must be confirmed before benchmark publication",
       "snapshot_date": "2026-07-24",
       "source": "data/hong_kong_airspace_20260724.zip",
@@ -98,16 +99,16 @@
       "api_template": "https://mapapi.geodata.gov.hk/gs/api/v1.0.0/xyz/basemap/WGS84/{z}/{x}/{y}.png",
       "attribution": "Map from Lands Department, HKSAR Government",
       "bounds": [
-        114.09468907,
-        22.32246691,
-        114.16201347,
-        22.35159739
+        114.07431096,
+        22.3090735,
+        114.18203531,
+        22.36449093
       ],
       "crs": "EPSG:3857 XYZ tiles requested through the LandsD WGS84 endpoint",
       "license": "DATA.GOV.HK Terms and Conditions",
       "source": "https://portal.csdi.gov.hk/csdi-webpage/apidoc/TopographicMapAPI",
       "status": "authoritative bounded offline visualization snapshot",
-      "tile_count": 449,
+      "tile_count": 1291,
       "zoom": [
         12,
         17
@@ -116,7 +117,7 @@
     "buildings_3d.geojson": {
       "crs": "EPSG:4326",
       "license": "DATA.GOV.HK terms",
-      "raw_sha256": "5c02b55c09a0f4207412394065ecb9094ca81d09f3fa1edd7c557cb2b54cb05b",
+      "raw_sha256": "7cc16cb253743d697570076048d80d63cc62de4ba180cc26005aceb9bfd7752f",
       "source": "https://portal.csdi.gov.hk/server/rest/services/common/landsd_rcd_1637211194312_35158/FeatureServer/0/query",
       "status": "authoritative API snapshot"
     },
@@ -130,7 +131,7 @@
     "population_density.tif": {
       "crs": "EPSG:2326",
       "license": "DATA.GOV.HK terms",
-      "raw_sha256": "2062a48b3da28328122eb156a5c51d8bccac26c4f3622928dcd3f50307f4ae97",
+      "raw_sha256": "e461228c33f8394efbaea8f350de44cbffb7384715d06ec083ac7dd6db6230f4",
       "source": "https://portal.csdi.gov.hk/server/rest/services/common/censtatd_rcd_1635933193720_58660/FeatureServer/0/query",
       "status": "2021 Census STPU population per square kilometre"
     },
@@ -148,5 +149,17 @@
     }
   },
   "operational_use": false,
+  "planning_extent": {
+    "bounds_wgs84": [
+      114.09060305,
+      22.31842728,
+      114.16581141,
+      22.35511694
+    ],
+    "corridor_buffer_m": 2000,
+    "distributed_scope": "only the bounded, task-specific derived layers are distributed",
+    "outside_behavior": "visual_basemap_only",
+    "source_cache": "whole-Hong-Kong authoring sources retained under ignored ALE_v0.2/.source-cache"
+  },
   "schema_version": "1.0"
 }

@@ -11,6 +11,14 @@ The tiles are visual context only: planning and evaluation continue to use the
 distributed 5 m DTM and structured building, airspace, population, weather, and
 emergency-site layers.
 
+Each task declares a deterministic `planning_extent`: the start/goal corridor
+is buffered by 2 km in Hong Kong 1980 Grid coordinates, then all structured GIS
+is clipped to that boundary. Current footprints are approximately 7.75 x 4.07 km
+(Kowloon), 14.40 x 9.81 km (cross-sea), and 5.93 x 4.78 km (blood transport).
+Offline map tiles extend another 20% for human visual context. The Web UI draws
+the planning boundary; pixels outside it are never treated as planning or scoring
+data.
+
 This repository is for benchmark simulation, evaluation, and demonstrations.
 It is not a real-flight authorization, dispatch, or aviation-safety system.
 
@@ -52,7 +60,7 @@ tests CPython 3.10-3.13 wheels for:
 - macOS Apple Silicon arm64
 
 The combined Mac artifact is named
-`ale-aam-maptool-0.2.2-macos-wheels`. Release wheels and wheelhouses are GitHub
+`ale-aam-maptool-0.3.0-macos-wheels`. Release wheels and wheelhouses are GitHub
 Actions artifacts and are not committed to Git.
 
 ## Local use

@@ -19,7 +19,8 @@
 
 ALE v0.2 已通过 `scripts/import_hk_airspace_snapshot.py` 校验上述 ZIP 哈希、
 修复多边形拓扑并按各任务 DEM 范围确定性裁剪，生成每个场景的
-`airspace_zones.geojson`。裁剪后城市、跨海、血运任务分别含 9、6、26 个 RFZ；
+`airspace_zones.geojson`。任务走廊统一外扩 2 km 后，城市、跨海、血运任务分别含
+15、8、38 个 RFZ；
 起终点均位于 RFZ 外，三种路线已重新执行可行性测试。跨海任务原终点落在
 Cheung Chau Helipad RFZ 内，因此移动约 268 m 到已核验的区外位置。
 

@@ -9,6 +9,10 @@ materially different candidates: A shortest direct, B conservative with double
 horizontal clearance, and C `time_optimal`. Recompute risk from your own
 submitted routes and select the lowest defensible total-risk route.
 
+`task.json.planning_extent` is the authoritative structured-data boundary. All
+submitted coordinates must remain inside it; any basemap visible beyond it is
+visual context only and has no DEM, building, population, weather, or scoring data.
+
 Deliver exactly six files in `output/`: `route_a.geojson`, `route_b.geojson`,
 `route_c.geojson`, `route_final.geojson`, `risk_assessment.csv`, and
 `emergency_response_plan.md`. The CSV has one header plus exactly 21 data rows.

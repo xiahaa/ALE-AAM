@@ -5,6 +5,7 @@
 - C: `time_optimal` for this scenario.
 - All routes must avoid RFZ polygons, respect building height plus 15 m vertical
   clearance, remain in the 50–150 m AGL and 5–18 m/s envelopes, fit battery
-  capacity, start/end exactly at task.json coordinates, and differ materially.
+  capacity, remain inside `planning_extent`, start/end exactly at task.json
+  coordinates, and differ materially.
 - `ale-aam-maptool validate` checks public schema and explicit constraints only; it
   is not a reference-answer or grading command.

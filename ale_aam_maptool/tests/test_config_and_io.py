@@ -31,6 +31,20 @@ def test_route_profile_configuration_is_bounded():
         normalize_task(broken)
 
 
+def test_planning_extent_is_preserved_and_contains_endpoints():
+    raw = json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8"))
+    raw["planning_extent"] = {
+        "bounds_wgs84": [13.37, 52.51, 13.40, 52.53],
+        "corridor_buffer_m": 2000,
+        "outside_behavior": "visual_basemap_only",
+    }
+    task = normalize_task(raw)
+    assert task["planning_extent"]["corridor_buffer_m"] == 2000
+    raw["planning_extent"]["bounds_wgs84"] = [13.38, 52.51, 13.40, 52.53]
+    with pytest.raises(ConfigurationError, match="mission.start is outside planning_extent"):
+        normalize_task(raw)
+
+
 def test_missing_required_layer(tmp_path):
     task = json.loads((ROOT / "sample_scenario/task.json").read_text(encoding="utf-8"))
     (tmp_path / "task.json").write_text(json.dumps(task), encoding="utf-8")

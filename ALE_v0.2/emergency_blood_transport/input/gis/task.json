@@ -41,6 +41,16 @@
       22.28314128069164
     ]
   },
+  "planning_extent": {
+    "bounds_wgs84": [
+      114.13729223,
+      22.25806688,
+      114.19486021,
+      22.30120278
+    ],
+    "corridor_buffer_m": 2000,
+    "outside_behavior": "visual_basemap_only"
+  },
   "route_profiles": {
     "A": {
       "avoid_population": false,
@@ -63,7 +73,7 @@
       "clearance_multiplier": 1.25,
       "cruise_agl_m": 125,
       "objective": "time_optimal",
-      "population_percentile": 95,
+      "population_percentile": 99,
       "speed_ms": 16.0,
       "strategy": "mission_optimized"
     }

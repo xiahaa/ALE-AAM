@@ -20,6 +20,12 @@ def validate_feature(feature: dict, task: dict, expected_route: str | None = Non
     if len(coords) < 5: errors.append("route must contain at least five coordinates")
     if any(not isinstance(p, list) or len(p) != 2 or not (-180 <= p[0] <= 180 and -90 <= p[1] <= 90) for p in coords):
         errors.append("coordinates must be [longitude, latitude] in WGS84 bounds")
+    planning_bounds = (task.get("planning_extent") or {}).get("bounds_wgs84")
+    if isinstance(planning_bounds, list) and len(planning_bounds) == 4:
+        west, south, east, north = planning_bounds
+        if any(not (west <= point[0] <= east and south <= point[1] <= north)
+                   for point in coords if isinstance(point, list) and len(point) == 2):
+            errors.append("coordinates must remain inside planning_extent bounds_wgs84")
     start, goal = task["mission"]["start"], task["mission"]["goal"]
     if coords and any(abs(coords[0][i] - start[i]) > 1e-6 for i in range(2)): errors.append("start endpoint mismatch")
     if coords and any(abs(coords[-1][i] - goal[i]) > 1e-6 for i in range(2)): errors.append("goal endpoint mismatch")

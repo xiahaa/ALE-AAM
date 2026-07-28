@@ -42,8 +42,8 @@ def test_rfz_vectors_are_real_snapshot_clips_and_endpoints_are_outside():
     from shapely.geometry import Point, shape
     from shapely.ops import unary_union
 
-    expected_counts = {"urban_drone_logistics": 9, "cross_sea_drone_logistics": 6,
-                       "emergency_blood_transport": 26}
+    expected_counts = {"urban_drone_logistics": 15, "cross_sea_drone_logistics": 8,
+                       "emergency_blood_transport": 38}
     for task in TASKS:
         gis = ROOT / task / "input" / "gis"
         airspace = json.loads((gis / "airspace_zones.geojson").read_text(encoding="utf-8"))
@@ -54,6 +54,25 @@ def test_rfz_vectors_are_real_snapshot_clips_and_endpoints_are_outside():
         union = unary_union([shape(feature["geometry"]) for feature in airspace["features"]])
         assert not union.covers(Point(task_data["mission"]["start"]))
         assert not union.covers(Point(task_data["mission"]["goal"]))
+
+
+def test_planning_extents_are_expanded_bounded_and_manifested():
+    minimum_dimensions = {
+        "urban_drone_logistics": (1500, 800),
+        "cross_sea_drone_logistics": (2800, 1900),
+        "emergency_blood_transport": (1150, 900),
+    }
+    for task in TASKS:
+        input_dir = ROOT / task / "input"
+        task_data = json.loads((input_dir / "gis" / "task.json").read_text(encoding="utf-8"))
+        manifest = json.loads((input_dir / "source_manifest.json").read_text(encoding="utf-8"))
+        extent = task_data["planning_extent"]
+        assert extent["corridor_buffer_m"] == 2000
+        assert extent["outside_behavior"] == "visual_basemap_only"
+        assert manifest["planning_extent"]["bounds_wgs84"] == extent["bounds_wgs84"]
+        with rasterio.open(input_dir / "gis" / "dem.tif") as dataset:
+            minimum_width, minimum_height = minimum_dimensions[task]
+            assert dataset.width >= minimum_width and dataset.height >= minimum_height
 
 
 def test_declared_raster_crs_matches_files():
@@ -67,7 +86,8 @@ def test_declared_raster_crs_matches_files():
 
 def test_hong_kong_landsd_offline_packs_are_precise_and_auditable():
     for task in TASKS:
-        directory = ROOT / task / "input" / "gis" / "basemaps"
+        gis = ROOT / task / "input" / "gis"
+        directory = gis / "basemaps"
         archive = directory / "hong_kong_landsd.mbtiles"
         sidecar = json.loads((directory / "hong_kong_landsd.manifest.json").read_text(encoding="utf-8"))
         pack = inspect_pack(archive, include_sha256=True)
@@ -76,4 +96,8 @@ def test_hong_kong_landsd_offline_packs_are_precise_and_auditable():
         assert pack["sha256"] == sidecar["sha256"]
         assert pack["attribution"] == "Map from Lands Department, HKSAR Government"
         assert sidecar["source"]["license"] == "DATA.GOV.HK Terms and Conditions"
+        assert sidecar["generation"]["padding_fraction"] == 0.2
+        for source in sidecar["scenario_sources"]:
+            actual = hashlib.sha256((gis / source["path"]).read_bytes()).hexdigest()
+            assert actual == source["sha256"], f"{task}: stale basemap source {source['path']}"
         assert not (directory / "example.mbtiles").exists()

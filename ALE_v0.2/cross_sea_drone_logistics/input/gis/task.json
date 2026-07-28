@@ -41,6 +41,16 @@
       22.260497414234752
     ]
   },
+  "planning_extent": {
+    "bounds_wgs84": [
+      114.00925789,
+      22.19001229,
+      114.148938,
+      22.2785632
+    ],
+    "corridor_buffer_m": 2000,
+    "outside_behavior": "visual_basemap_only"
+  },
   "route_profiles": {
     "A": {
       "avoid_population": false,

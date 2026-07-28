@@ -7,4 +7,5 @@ and `validate`. Do not use network access, sudo, apt, Homebrew, MSVC, or a sourc
 compiler. The web demo is `serve --scenario input/gis --host 127.0.0.1`.
 `input/gis/basemaps/hong_kong_landsd.mbtiles` is visual context only. Derive
 constraints and risk from the declared DEM, vector, population, and weather
-layers; do not treat cartographic basemap pixels as scoring truth.
+layers inside `task.json.planning_extent`; do not treat cartographic basemap
+pixels, including the 20% frame outside that extent, as scoring truth.

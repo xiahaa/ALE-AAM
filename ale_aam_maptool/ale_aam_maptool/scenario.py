@@ -28,7 +28,7 @@ from rasterio.crs import CRS
 from rasterio.features import rasterize
 from rasterio.transform import Affine, from_origin
 from rasterio.warp import Resampling, calculate_default_transform, reproject, transform_bounds
-from shapely.geometry import Point, shape
+from shapely.geometry import Point, box, shape
 from shapely.ops import transform as shp_transform
 
 from .config import DEFAULT_TASK, normalize_task, profile
@@ -112,6 +112,13 @@ class Scenario:
         # cached coordinate transformers (4326 <-> metric CRS)
         self._to_metric = Transformer.from_crs("EPSG:4326", grid.crs, always_xy=True)
         self._to_lonlat = Transformer.from_crs(grid.crs, "EPSG:4326", always_xy=True)
+        self._planning_mask = None
+        extent = self.task.get("planning_extent")
+        if isinstance(extent, dict) and extent.get("bounds_wgs84"):
+            polygon = shp_transform(self._to_metric.transform, box(*extent["bounds_wgs84"]))
+            self._planning_mask = self._rasterize(
+                [polygon], self.grid.transform, self.grid.width, self.grid.height
+            )
 
     # ------------------------------------------------------------------ loading
     @classmethod
@@ -223,6 +230,9 @@ class Scenario:
         radius = int(round(params["extra_clearance_m"] / self.grid.resolution))
         occ = dilate(occ, radius)
 
+        if self._planning_mask is not None:
+            occ = occ | ~self._planning_mask
+
         # keep start/goal (and any requested points) free
         for ll in force_free_lonlat or []:
             self._clear_around(occ, ll, radius=max(1, radius, 1))
@@ -253,6 +263,13 @@ class Scenario:
             lo, la = self.to_lonlat(x, y)
             lons.append(lo); lats.append(la)
         return min(lons), min(lats), max(lons), max(lats)
+
+    def planning_lonlat_bounds(self):
+        """Return the declared planning boundary, or the grid boundary for legacy tasks."""
+        extent = self.task.get("planning_extent")
+        if isinstance(extent, dict) and extent.get("bounds_wgs84"):
+            return tuple(map(float, extent["bounds_wgs84"]))
+        return self.lonlat_bounds()
 
     def _sample_northup(self, arr, lonlat):
         if arr is None:
@@ -302,9 +319,11 @@ class Scenario:
 
     def environment_at(self, lon: float, lat: float) -> dict:
         """Return raster samples and visible vector properties at a WGS84 point."""
-        west, south, east, north = self.lonlat_bounds()
+        west, south, east, north = self.planning_lonlat_bounds()
         if not (west <= lon <= east and south <= lat <= north):
-            raise ValueError("coordinate is outside the bound scenario")
+            raise ValueError(
+                "coordinate is outside planning_extent; only basemap visualization is available"
+            )
         point = Point(lon, lat)
         hits = {}
         for key, features in self.vector_features.items():

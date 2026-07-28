@@ -42,9 +42,9 @@ def stage(output: Path, wheelhouse: Path) -> Path:
     if output.exists():
         raise FileExistsError(f"release target already exists: {output}")
     wheels = sorted(wheelhouse.glob("*.whl"))
-    native = [p for p in wheels if p.name.startswith("ale_aam_maptool-0.2.2-cp312-") and "linux" in p.name]
+    native = [p for p in wheels if p.name.startswith("ale_aam_maptool-0.3.0-cp312-") and "linux" in p.name]
     if len(native) != 1:
-        raise RuntimeError("wheelhouse must contain exactly one Linux CPython 3.12 ale-aam-maptool 0.2.2 wheel")
+        raise RuntimeError("wheelhouse must contain exactly one Linux CPython 3.12 ale-aam-maptool 0.3.0 wheel")
 
     tasks_root = output / "tasks" / DOMAIN
     data_root = output / "task_data" / DOMAIN
@@ -70,7 +70,7 @@ def stage(output: Path, wheelhouse: Path) -> Path:
     files = sorted(p for p in output.rglob("*") if p.is_file())
     manifest = {
         "schema_version": "1.0",
-        "tool_version": "0.2.2",
+        "tool_version": "0.3.0",
         "domain": DOMAIN,
         "tasks": list(TASKS),
         "files": [

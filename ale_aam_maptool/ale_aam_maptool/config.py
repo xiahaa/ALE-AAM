@@ -7,6 +7,7 @@ from .errors import ConfigurationError
 
 DEFAULT_TASK = {
     "schema_version": "2.0",
+    "planning_extent": None,
     "mission": {"id": "scenario", "name": "Scenario", "start": None, "goal": None, "environment": "urban"},
     "layers": {
         "dem": "dem.tif", "buildings": "buildings_3d.geojson",
@@ -42,6 +43,8 @@ def normalize_task(raw: dict | None) -> dict:
             value = raw.get(section)
             if isinstance(value, dict):
                 task[section].update(value)
+        if isinstance(raw.get("planning_extent"), dict):
+            task["planning_extent"] = deepcopy(raw["planning_extent"])
         task["schema_version"] = str(raw.get("schema_version", "2.0"))
     else:
         task = deepcopy(DEFAULT_TASK)
@@ -74,6 +77,23 @@ def _lonlat(value, name):
 def _validate(task: dict):
     _lonlat(task["mission"].get("start"), "start")
     _lonlat(task["mission"].get("goal"), "goal")
+    extent = task.get("planning_extent")
+    if extent is not None:
+        bounds = extent.get("bounds_wgs84") if isinstance(extent, dict) else None
+        if not isinstance(bounds, list) or len(bounds) != 4:
+            raise ConfigurationError("planning_extent.bounds_wgs84 must be [west, south, east, north]")
+        west, south, east, north = map(float, bounds)
+        if not (-180 <= west < east <= 180 and -90 <= south < north <= 90):
+            raise ConfigurationError("planning_extent.bounds_wgs84 is invalid")
+        for endpoint in ("start", "goal"):
+            lon, lat = map(float, task["mission"][endpoint])
+            if not (west <= lon <= east and south <= lat <= north):
+                raise ConfigurationError(f"mission.{endpoint} is outside planning_extent")
+        buffer_m = extent.get("corridor_buffer_m")
+        if buffer_m is not None and float(buffer_m) < 0:
+            raise ConfigurationError("planning_extent.corridor_buffer_m must be non-negative")
+        if extent.get("outside_behavior", "visual_basemap_only") != "visual_basemap_only":
+            raise ConfigurationError("planning_extent.outside_behavior must be visual_basemap_only")
     amin = float(task["constraints"]["altitude_m_agl"]["min"])
     amax = float(task["constraints"]["altitude_m_agl"]["max"])
     if not (0 <= amin <= amax <= 150):

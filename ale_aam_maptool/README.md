@@ -1,4 +1,4 @@
-# ale-aam-maptool 0.2.2
+# ale-aam-maptool 0.3.0
 
 Deterministic, offline low-altitude route planning for the ALE benchmark.
 Platform-specific release wheels support CPython 3.10–3.13 on Windows x64,
@@ -19,7 +19,7 @@ guide: [USAGE.zh.md](USAGE.zh.md).
 - Ubuntu/macOS: place the wheelhouse beside the script, then run `sh install.sh`.
 
 The wheel workflow uploads one combined artifact named
-`ale-aam-maptool-0.2.2-macos-wheels`. It contains CPython 3.10-3.13 wheels for
+`ale-aam-maptool-0.3.0-macos-wheels`. It contains CPython 3.10-3.13 wheels for
 both Intel (`x86_64`) and Apple Silicon (`arm64`). Download the artifact, put
 the matching wheel under `dist/macos-arm64/` or `dist/macos-x86_64/`, and run
 `sh install.sh`. A maintainer who needs to bootstrap the first artifacts on a
@@ -58,6 +58,11 @@ draws and edits fixed-pixel waypoints, and exports a GeoJSON `LineString`. The
 browser cannot request an arbitrary server path. For
 Hong Kong, the key-free live LandsD topographic provider is available without
 configuration. Formal ALE runs use the included scenario-local LandsD snapshot.
+
+For bounded tasks, the Web map draws a yellow dashed planning boundary. The
+offline basemap intentionally extends 20% outside it, but environment queries,
+manual waypoints, and public validation reject coordinates beyond the declared
+`task.json.planning_extent`.
 
 Copy `.env.example` to `.env`, populate the provider values locally, and never
 commit that file. The browser receives only `/v1/basemaps/...` image URLs: provider

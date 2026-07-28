@@ -4,6 +4,8 @@ const state = {
   map: null,
   scenario: null,
   scenarioBounds: null,
+  planningBounds: null,
+  coverageBoundary: null,
   vectorRenderer: null,
   basemaps: [],
   basemap: 'offline',
@@ -55,9 +57,15 @@ function scenarioLeafletBounds() {
   return L.latLngBounds([extent.south, extent.west], [extent.north, extent.east]);
 }
 
+function planningLeafletBounds() {
+  const values = state.scenario.planning_extent?.bounds_wgs84;
+  if (!Array.isArray(values) || values.length !== 4) return scenarioLeafletBounds();
+  return L.latLngBounds([values[1], values[0]], [values[3], values[2]]);
+}
+
 function resetView() {
   if (state.map && state.scenarioBounds) {
-    state.map.fitBounds(state.scenarioBounds, {padding: [24, 24], animate: false});
+    state.map.fitBounds(state.planningBounds || state.scenarioBounds, {padding: [24, 24], animate: false});
   }
 }
 
@@ -323,6 +331,42 @@ function resetRoute() {
   setStatus('已载入任务起点和终点；切换到“画航点”后点击地图添加中间航点。');
 }
 
+function coordinateInPlanningExtent(coordinate) {
+  if (!state.scenario) return false;
+  const values = state.scenario.planning_extent?.bounds_wgs84;
+  if (!Array.isArray(values) || values.length !== 4) return state.scenarioBounds.contains(toLatLng(coordinate));
+  return coordinate[0] >= values[0] && coordinate[0] <= values[2]
+    && coordinate[1] >= values[1] && coordinate[1] <= values[3];
+}
+
+function showCoverageWarning(coordinate) {
+  $('longitude').value = coordinate[0].toFixed(7);
+  $('latitude').value = coordinate[1].toFixed(7);
+  const box = $('environment');
+  box.textContent = '';
+  const heading = document.createElement('strong');
+  heading.textContent = '规划有效范围之外';
+  const detail = document.createElement('div');
+  detail.textContent = '此处底图仍可用于视觉定位，但没有随任务交付的 DEM、建筑、人口、天气或评分数据，不能添加或拖入航点。';
+  box.append(heading, detail);
+  setStatus('所选位置在黄色规划边界之外；框外底图仅供视觉参考。', true);
+}
+
+function renderPlanningBoundary() {
+  if (state.coverageBoundary) state.coverageBoundary.removeFrom(state.map);
+  state.coverageBoundary = L.rectangle(state.planningBounds, {
+    color: '#facc15',
+    weight: 2,
+    opacity: 0.95,
+    dashArray: '8 6',
+    fill: false,
+    interactive: false,
+    bubblingMouseEvents: false,
+    pane: 'coveragePane',
+  }).addTo(state.map);
+  state.coverageBoundary.bringToFront();
+}
+
 const objectiveLabels = {
   shortest_direct: '最短直达',
   conservative_safety: '双倍净空 / 保守安全',
@@ -550,6 +594,7 @@ function renderDraft() {
   updateRouteLine();
   for (const marker of state.waypointMarkers) marker.removeFrom(state.map);
   state.waypointMarkers = state.waypoints.map((waypoint, index) => {
+    const previousCoordinate = [...waypoint.coordinate];
     const marker = L.marker(toLatLng(waypoint.coordinate), {
       icon: waypointIcon(index),
       draggable: true,
@@ -567,7 +612,14 @@ function renderDraft() {
       updateRouteLine();
     });
     marker.on('dragend', async event => {
-      waypoint.coordinate = toCoordinate(event.target.getLatLng());
+      const candidate = toCoordinate(event.target.getLatLng());
+      if (!coordinateInPlanningExtent(candidate)) {
+        waypoint.coordinate = previousCoordinate;
+        showCoverageWarning(candidate);
+        renderDraft();
+        return;
+      }
+      waypoint.coordinate = candidate;
       await sampleWaypoint(index);
       markRouteEdited();
       renderDraft();
@@ -606,6 +658,10 @@ function showEnvironment(data, title = '场景环境') {
 async function inspectCoordinate(coordinate) {
   $('longitude').value = coordinate[0].toFixed(7);
   $('latitude').value = coordinate[1].toFixed(7);
+  if (!coordinateInPlanningExtent(coordinate)) {
+    showCoverageWarning(coordinate);
+    return;
+  }
   const data = await request(`/v1/environment?lon=${coordinate[0]}&lat=${coordinate[1]}`);
   showEnvironment(data);
 }
@@ -758,10 +814,17 @@ function initializeMap() {
     wheelDebounceTime: 25,
   });
   state.map.zoomControl.setPosition('topright');
+  state.map.createPane('coveragePane');
+  state.map.getPane('coveragePane').style.zIndex = '480';
+  state.map.getPane('coveragePane').style.pointerEvents = 'none';
   state.vectorRenderer = L.canvas({padding: 0.5, tolerance: 5});
   state.map.on('click', async event => {
     if (!state.scenario || state.mode === 'pan') return;
     const coordinate = toCoordinate(event.latlng);
+    if (!coordinateInPlanningExtent(coordinate)) {
+      showCoverageWarning(coordinate);
+      return;
+    }
     if (state.mode === 'draw') {
       addWaypoint(coordinate);
       return;
@@ -778,7 +841,9 @@ async function initialize() {
     state.scenario = await request('/v1/scenario');
     initializeRouteProfiles();
     state.scenarioBounds = scenarioLeafletBounds();
+    state.planningBounds = planningLeafletBounds();
     resetView();
+    renderPlanningBoundary();
     renderScenarioLayers();
     await loadBasemaps();
     $('longitude').value = state.scenario.mission.start[0].toFixed(6);

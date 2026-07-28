@@ -16,6 +16,7 @@ from ale_aam_maptool.errors import NoFeasiblePathError
 from ale_aam_maptool.planner import plan_all_routes, plan_route
 from ale_aam_maptool.scenario import Scenario
 from ale_aam_maptool.server import app, bind_scenario
+from ale_aam_maptool.validator import validate_feature
 
 ROOT = Path(__file__).parents[1]
 
@@ -68,7 +69,10 @@ def test_versioned_bound_api_has_no_path_loader():
     bind_scenario(ROOT / "sample_scenario")
     client = TestClient(app)
     assert client.get("/v1/health").json()["status"] == "ok"
-    assert client.get("/v1/scenario").status_code == 200
+    scenario_summary = client.get("/v1/scenario")
+    assert scenario_summary.status_code == 200
+    assert len(scenario_summary.json()["planning_extent"]["bounds_wgs84"]) == 4
+    assert len(scenario_summary.json()["planning_extent"]["grid_bounds_wgs84"]) == 4
     assert client.get("/v1/preview").headers["content-type"] == "image/png"
     layers = client.get("/v1/layers").json()["layers"]
     assert {layer["id"] for layer in layers} == {
@@ -87,6 +91,9 @@ def test_versioned_bound_api_has_no_path_loader():
     environment = client.get("/v1/environment", params={"lon": start[0], "lat": start[1]})
     assert environment.status_code == 200
     assert environment.json()["coordinate"] == pytest.approx(start)
+    extent = scenario_summary.json()["extent"]
+    outside = client.get("/v1/environment", params={"lon": extent["west"] - 0.01, "lat": extent["south"]})
+    assert outside.status_code == 422
     basemaps = client.get("/v1/basemaps")
     assert basemaps.status_code == 200
     assert any(provider["id"] == "offline" for provider in basemaps.json()["providers"])
@@ -103,12 +110,42 @@ def test_versioned_bound_api_has_no_path_loader():
     planned_all = client.post("/v1/plan-all")
     assert planned_all.status_code == 200
     assert set(planned_all.json()) == {"A", "B", "C"}
+    bounded_task = json.loads((ROOT / "sample_scenario" / "task.json").read_text(encoding="utf-8"))
+    bounded_task["planning_extent"] = {"bounds_wgs84": [start[0] - 0.01, start[1] - 0.01,
+                                                            start[0] + 0.01, start[1] + 0.01]}
+    outside_feature = planned.json()["feature"]
+    outside_feature["geometry"]["coordinates"][1] = [start[0] + 0.02, start[1]]
+    assert "coordinates must remain inside planning_extent bounds_wgs84" in validate_feature(
+        outside_feature, bounded_task, "A"
+    )
     paths = client.get("/openapi.json").json()["paths"]
     assert "/scenario/load" not in paths
     assert set(("/v1/health","/v1/scenario","/v1/preview","/v1/layers",
                 "/v1/layers/{layer_id}/preview", "/v1/layers/{layer_id}", "/v1/environment",
                 "/v1/basemaps", "/v1/basemaps/{provider_id}/{z}/{x}/{y}.png",
                 "/v1/plan","/v1/plan-all","/v1/validate")) <= set(paths)
+
+
+def test_declared_planning_extent_is_preserved_and_enforced_by_api(tmp_path):
+    scenario_path = tmp_path / "scenario"
+    shutil.copytree(ROOT / "sample_scenario", scenario_path)
+    task_path = scenario_path / "task.json"
+    task = json.loads(task_path.read_text(encoding="utf-8"))
+    task["planning_extent"] = {
+        "bounds_wgs84": [13.3779, 52.5162, 13.3886, 52.5219],
+        "corridor_buffer_m": 2000,
+        "outside_behavior": "visual_basemap_only",
+    }
+    task_path.write_text(json.dumps(task), encoding="utf-8")
+
+    bind_scenario(scenario_path)
+    client = TestClient(app)
+    summary = client.get("/v1/scenario").json()
+    assert summary["planning_extent"]["bounds_wgs84"] == task["planning_extent"]["bounds_wgs84"]
+    assert summary["planning_extent"]["corridor_buffer_m"] == 2000
+    outside = client.get("/v1/environment", params={"lon": 13.3778, "lat": 52.519})
+    assert outside.status_code == 422
+    assert "outside planning_extent" in outside.json()["detail"]
 
 
 def test_basemap_proxy_keeps_credentials_server_side(monkeypatch):
@@ -219,10 +256,13 @@ def test_web_assets_are_offline():
     assert 'src="vendor/leaflet/leaflet.js"' in index
     assert '<svg id="map"' not in index and '<div id="map"' in index
     assert 'class="map-legend"' in index
+    assert 'class="legend-coverage"' in index and '规划有效范围' in index
     assert 'id="route-profile"' in index and 'id="auto-plan"' in index and 'id="plan-all"' in index
     assert index.index('id="mode-inspect"') < index.index('id="route-title"')
     assert "state.view" not in script and "L.geoJSON" in script
     assert "request('/v1/plan'" in script and "request('/v1/plan-all'" in script
+    assert "L.rectangle(state.planningBounds" in script
+    assert "coordinateInPlanningExtent" in script and "showCoverageWarning" in script
     assert ".waypoint-dot" in style and "width: 24px" in style
 
 

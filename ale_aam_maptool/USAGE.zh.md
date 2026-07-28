@@ -1,4 +1,4 @@
-# ale-aam-maptool 0.2.2 与 ALE v0.2 详细使用手册
+# ale-aam-maptool 0.3.0 与 ALE v0.2 详细使用手册
 
 本文面向三类读者：
 
@@ -12,7 +12,7 @@
 
 ## 1. 功能与版本
 
-`ale-aam-maptool 0.2.2` 提供以下功能：
+`ale-aam-maptool 0.3.0` 提供以下功能：
 
 - 读取 DEM、三维建筑物、限制空域、人口、天气和应急点 GIS 图层。
 - 使用原生 JPS 后端生成 A、B、C 三种低空路线。
@@ -52,12 +52,14 @@ Windows 使用：
 
 1. **加载数据**：页面自动显示场景声明的 DEM、3D 建筑、空域、气象、人口和应急点图层。每层可独立显示或隐藏。也可以选择本地 `.geojson`、`.json`，或包含 Store 模式 `.geojson` 的 `.zip`；文件只在浏览器内解析。
 2. **查看环境**：用滚轮缩放、拖动地图平移；输入经纬度可定位。“查看”按钮位于本区，启用后点击地图可读取该位置的地形高程、气象值、人口密度以及命中的建筑、空域和应急点属性。
-3. **绘制航线**：页面先放入任务起点和终点。切换到“画航点”，点击地图添加中间航点；拖动圆点调整位置，在航点列表中设置 AGL 高度和速度，或删除航点。
-4. **导出**：点击“导出 GeoJSON”，得到 `ale-aam-route.geojson`。几何类型为 `Feature/LineString`，坐标固定为 `[longitude, latitude]`，每个航点包含高度、速度，并在 DEM 有值时包含 `altitude_m_msl`。
+3. **规划与编辑航线**：选择 A/B/C 后规划一条或全部三条路线；也可以切换到“画航点”添加中间航点、拖动圆点并修改 AGL 高度和速度。
+4. **导出**：自动路线导出为 `route_a.geojson`、`route_b.geojson` 或 `route_c.geojson`；人工路线导出为 `ale-aam-route.geojson`。坐标固定为 `[longitude, latitude]`。
 
 Web 地图默认选择场景自带的香港地政总署 z12-z17 离线快照，不依赖 OSM、在线瓦片或 CDN，因此大陆网络、内网和断网环境下仍能显示。建筑、空域和应急点以原始 GeoJSON 矢量绘制，放大时不会像预览图片一样失真；航点和文字保持固定像素大小。在线时还可选择免密钥的地政总署实时地形图，或按下一节启用天地图/Mapbox。仓库 `data/hong_kong_airspace_20260724.zip` 可直接作为本地空域叠加层加载。
 
 离线地形瓦片只提供人类可读的视觉背景，不作为规划或隐藏评分输入。任务难度来自同场景的 5 m DTM、数千个带高度建筑物、空域、人口、气象和应急点等结构化 GIS；agent 与 evaluator 使用这些可重算图层，而不是从底图像素猜测约束。这样既提高人工验收的地图精度，也不会把底图供应商的制图细节误当作评分真值。
+
+三个香港任务使用统一的 2 km 起终点走廊缓冲，当前结构化数据范围约为：九龙 7.75 × 4.07 km、跨海 14.40 × 9.81 km、港岛血运 5.93 × 4.78 km。Web 页面用黄色虚线显示 `task.json.planning_extent`。离线底图在边界外额外保留 20% 视觉缓冲，但框外没有随任务交付的 DEM、建筑、人口、天气或评分数据；页面禁止在框外查询环境、添加或拖入航点，公开 `validate` 也会拒绝越界坐标。
 
 ### 1.2 可选在线底图与密钥保密
 
@@ -204,7 +206,7 @@ wheel 文件名中的 `cp310`、`cp311`、`cp312`、`cp313` 分别对应 Python 
 - 完全离线包：把 `ale_aam_maptool` 和所有依赖 wheel 放在 `wheelhouse/`。安装脚本使用 `--no-index`，不会访问 PyPI。
 - 普通发布包：把与当前平台匹配的 `ale_aam_maptool` wheel 放在 `dist/` 或 `dist/` 的一级子目录。安装器可从 PyPI 获取声明的 Python 依赖。
 
-正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.2.2` wheel 及所有依赖。
+正式 ALE 必须使用第一种形式，并且 `wheelhouse/` 中必须包含 Linux CPython 3.12 的 `ale_aam_maptool 0.3.0` wheel 及所有依赖。
 
 ## 4. 三平台安装
 
@@ -263,7 +265,7 @@ sh run.sh doctor --json
 Intel Python、Rosetta x86_64 Python 和 arm64 Python 不能混用 wheel。遇到 `incompatible architecture` 时，应更换 Python 或 wheel，不要尝试在用户机器上编译原生扩展。
 
 正式 wheel 由 GitHub Actions 的 `ale-aam-maptool cross-platform wheels`
-工作流生成。下载名为 `ale-aam-maptool-0.2.2-macos-wheels` 的 artifact，解压后根据
+工作流生成。下载名为 `ale-aam-maptool-0.3.0-macos-wheels` 的 artifact，解压后根据
 Python 和架构选择一个 wheel：
 
 ```text
@@ -280,7 +282,7 @@ Python 3.13 + Apple Silicon cp313-...-arm64.whl
 将匹配的 wheel 放到对应目录，例如：
 
 ```text
-dist/macos-arm64/ale_aam_maptool-0.2.2-cp312-...-arm64.whl
+dist/macos-arm64/ale_aam_maptool-0.3.0-cp312-...-arm64.whl
 ```
 
 然后运行：
@@ -326,7 +328,7 @@ sh run.sh doctor --json
   "offline_web": true,
   "ok": true,
   "python_supported": true,
-  "version": "0.2.2"
+  "version": "0.3.0"
 }
 ```
 
@@ -799,6 +801,7 @@ http://127.0.0.1:8000/
 Web 界面可以：
 
 - 显示 z12-z17 香港官方离线底图以及绑定场景的 DEM、建筑、空域、气象、人口和应急点。
+- 用黄色虚线标出结构化规划有效范围；框外底图只提供视觉上下文。
 - 保持建筑、空域、应急点为矢量图形，并在所有缩放级别保持航点、文字和线宽的可读尺寸。
 - 点击地图或输入经纬度查看环境属性；在浏览器内导入 GeoJSON/未压缩 GeoJSON ZIP。
 - 选择 A/B/C 策略后规划单条路线，或一次规划三条路线；显示距离、时间、能耗和航点数。
@@ -902,13 +905,13 @@ transport_safety/emergency_blood_transport
 
 ```bash
 python scripts/build_tasks.py
-python scripts/refresh_official_sources.py
+python scripts/refresh_official_sources.py --refresh-vectors
 python scripts/import_hk_airspace_snapshot.py
 python ../ale_aam_maptool/scripts/build_hk_landsd_basemap.py \
   --scenario urban_drone_logistics/input/gis \
   --scenario cross_sea_drone_logistics/input/gis \
   --scenario emergency_blood_transport/input/gis \
-  --min-zoom 12 --max-zoom 17
+  --min-zoom 12 --max-zoom 17 --padding 0.20
 python scripts/register_basemap_sources.py
 python -m pytest tests
 ```
@@ -916,7 +919,7 @@ python -m pytest tests
 说明：
 
 - `build_tasks.py` 确定性重建三场景及任务文件。
-- `refresh_official_sources.py` 用于维护者刷新固定日期的官方数据快照，需要网络，只能在任务发布前执行，不能在 agent 运行期间执行。
+- `refresh_official_sources.py` 从 `task.json.planning_extent` 读取边界并动态裁剪。全香港 DTM 缓存在被 Git 忽略的 `ALE_v0.2/.source-cache/`，交付包只包含任务范围；`--refresh-vectors` 重新查询扩大范围的建筑和人口，默认继续复用固定天气快照。脚本需要网络，只能在任务发布前执行。
 - `import_hk_airspace_snapshot.py` 校验仓库中 2026-07-24 RFZ ZIP 的固定 SHA-256，修复拓扑并按三个 DEM 范围裁剪；跨海任务原终点位于 Cheung Chau Helipad RFZ 内，脚本将其移动约 268 m 到已核验的区外点。
 - `build_hk_landsd_basemap.py` 串行限速生成官方香港离线地形包；`register_basemap_sources.py` 把包的来源、许可状态、范围和 SHA-256 登记回场景 manifest。
 - 已提供的 2026-07-24 eSUA/RFZ 压缩包已按三个 DEM 范围裁剪并固定 SHA-256；公开发布前仍必须确认源数据的再分发条款，manifest 将其明确标为阻断项。

@@ -78,6 +78,7 @@ main { position: relative; min-width: 0; background: #020817; overflow: hidden; 
 .map-legend .legend-airspace { border-color: #ef4444; background: #ef444444; }
 .map-legend .legend-emergency { width: 10px; height: 10px; border-color: #111827; border-radius: 50%; background: #facc15; }
 .map-legend .legend-route { height: 0; border-color: #22d3ee; border-width: 2px 0 0; }
+.map-legend .legend-coverage { background: transparent; border-color: #facc15; border-style: dashed; }
 .leaflet-control-zoom a { background: #0d1b2dee; color: #e8f0fa; border-bottom-color: #29435f; }
 .leaflet-control-zoom a:hover { background: #17314d; color: #fff; }
 .leaflet-control-zoom { border-color: #3a5877 !important; }

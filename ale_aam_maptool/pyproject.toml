@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "ale-aam-maptool"
-version = "0.2.2"
+version = "0.3.0"
 description = "Deterministic offline low-altitude route planning toolkit for ALE"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"

@@ -80,8 +80,9 @@ def update_manifest(task_root: Path, feature_count: int) -> None:
     manifest_path = task_root / "input" / "source_manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     actual = str(manifest.get("actual_derivation", ""))
-    if "; RFZ remains" in actual:
-        actual = actual.split("; RFZ remains", 1)[0]
+    for marker in ("; RFZ remains", "; RFZ uses"):
+        if marker in actual:
+            actual = actual.split(marker, 1)[0]
     manifest["actual_derivation"] = (
         f"{actual}; RFZ uses the clipped, fixed-date user-provided 2026-07-24 snapshot"
     ).strip("; ")

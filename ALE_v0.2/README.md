@@ -22,6 +22,12 @@ archive is clipped into each case and hash-pinned; its redistribution terms
 remain an explicit publication blocker until confirmed. Run `pytest tests` for
 source, lifecycle, and evaluator mutation tests.
 
+The three tasks use an explicit 2 km mission-corridor `planning_extent`. The
+whole-Hong-Kong DTM is retained only in the ignored `.source-cache` during task
+authoring; distributed DEM, building, census, weather, and RFZ layers are clipped
+to each task extent. The offline topographic packs use an additional 20% visual
+padding. Basemap content outside the declared extent is not planning/scoring data.
+
 After the Ubuntu/Python 3.12 wheelhouse has been built, run
 `python scripts/stage_release.py`. It produces the ALE-native split layout under
 `dist/ale-v0.2`: task code in `tasks/transport_safety/` and staged
