@@ -249,6 +249,15 @@ node --check ale_aam_maptool/ale_aam_maptool/web/app.js
 GitHub Actions additionally installs the wheel on Windows, Ubuntu, Intel macOS,
 and Apple Silicon macOS with every supported Python version.
 
+## Contributors and contact
+
+- **Zhang Lei** — [zhanglei@idea.edu.cn](mailto:zhanglei@idea.edu.cn)
+- **Meng Luoheng** — [mengluoheng@idea.edu.cn](mailto:mengluoheng@idea.edu.cn)
+- **Xiao Hu** — [huxiao1@idea.edu.cn](mailto:huxiao1@idea.edu.cn)
+
+Lower Airspace Economy Research Institute, International Digital Economy
+Academy (IDEA), Shenzhen 510085, China.
+
 ## Data and licensing
 
 Source provenance and checksums are recorded in each task's

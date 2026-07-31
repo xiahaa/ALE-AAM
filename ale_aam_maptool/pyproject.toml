@@ -10,7 +10,11 @@ readme = {text = "ALE-AAM loads task GIS, exposes offline environment inspection
 requires-python = ">=3.10,<3.14"
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
-authors = [{name = "ALE-AAM benchmark team"}]
+authors = [
+  {name = "Zhang Lei", email = "zhanglei@idea.edu.cn"},
+  {name = "Meng Luoheng", email = "mengluoheng@idea.edu.cn"},
+  {name = "Xiao Hu", email = "huxiao1@idea.edu.cn"},
+]
 dependencies = [
   "fastapi>=0.110,<1",
   "numpy>=1.24,<3",

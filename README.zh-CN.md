@@ -225,6 +225,14 @@ node --check ale_aam_maptool/ale_aam_maptool/web/app.js
 GitHub Actions 还会在 Windows、Ubuntu、Intel macOS、Apple Silicon macOS 以及所有
 支持的 Python 版本上安装测试 wheel。
 
+## 项目贡献者与联系方式
+
+- **张蕾** — [zhanglei@idea.edu.cn](mailto:zhanglei@idea.edu.cn)
+- **蒙洛恒** — [mengluoheng@idea.edu.cn](mailto:mengluoheng@idea.edu.cn)
+- **胡骁** — [huxiao1@idea.edu.cn](mailto:huxiao1@idea.edu.cn)
+
+粤港澳大湾区数字经济研究院低空经济分院，深圳 510085。
+
 ## 数据与许可
 
 每个任务的 `source_manifest.json` 记录数据来源和校验值。离线底图署名为“Map from
