@@ -251,7 +251,7 @@ and Apple Silicon macOS with every supported Python version.
 
 ## Contributors and contact
 
-- **Zhang Lei** — [zhanglei@idea.edu.cn](mailto:zhanglei@idea.edu.cn)
+- **Zhang Lei** — [zhanglei1@idea.edu.cn](mailto:zhanglei1@idea.edu.cn)
 - **Meng Luoheng** — [mengluoheng@idea.edu.cn](mailto:mengluoheng@idea.edu.cn)
 - **Xiao Hu** — [huxiao1@idea.edu.cn](mailto:huxiao1@idea.edu.cn)
 
