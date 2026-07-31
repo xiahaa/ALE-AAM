@@ -227,7 +227,7 @@ GitHub Actions 还会在 Windows、Ubuntu、Intel macOS、Apple Silicon macOS �
 
 ## 项目贡献者与联系方式
 
-- **张蕾** — [zhanglei@idea.edu.cn](mailto:zhanglei@idea.edu.cn)
+- **张蕾** — [zhanglei1@idea.edu.cn](mailto:zhanglei1@idea.edu.cn)
 - **蒙洛恒** — [mengluoheng@idea.edu.cn](mailto:mengluoheng@idea.edu.cn)
 - **胡骁** — [huxiao1@idea.edu.cn](mailto:huxiao1@idea.edu.cn)
 
