@@ -1,94 +1,56 @@
-# ALE-AAM 1.0.0 最终版说明
+# ALE-AAM
 
-[English documentation](README.md) | 中文说明
+[English](README.md) | 中文
 
-ALE-AAM 是用于 Agents' Last Exam（ALE）三个香港低空物流任务的最终离线 GIS
-查看与人工航线编辑工具。工具负责加载任务场景、展示结构化环境图层、查询指定位置、
-人工绘制和编辑 A/B/C 三条候选航线、导出 GeoJSON，以及检查公开输出合同。
+ALE-AAM 是面向 [Agents' Last Exam（ALE）](https://agents-last-exam.org/) 香港低空
+物流任务的跨平台、离线优先 GIS 工具。使用者和 agent 可以加载任务场景、查看运行
+环境、绘制和编辑候选航线、导出 GeoJSON，并校验规定的交付文件。
 
-最终版有意禁用了自动规划。工具中不存在 `plan`、`plan-all` CLI 命令，不存在
-`/v1/plan` HTTP 接口，不公开 Python 自动规划 API，wheel 中也不再包含 JPS 原生
-扩展。这样可以保留基准任务的推理难度：agent 必须理解 GIS 数据和显式约束，自行
-构造三条候选路线。
+仓库包含地图工具和三个可以独立上传的 ALE 任务：
 
-本项目仅用于基准测试、模拟和评测，不是真实飞行许可、调度系统或航空安全系统。
-
-## 1. 最终仓库内容
-
-```text
-ALE-AAM/
-├── README.md / README.zh-CN.md       最终英文、中文说明
-├── ale_aam_maptool/                  跨平台公开工具
-│   ├── ale_aam_maptool/              Python 包和离线 Web UI
-│   ├── sample_scenario/              确定性 smoke 测试场景
-│   ├── scripts/                      仅保留发布验收脚本
-│   ├── tests/                        最终能力和 API 测试
-│   ├── install.ps1 / install.sh
-│   ├── run.cmd / run.sh
-│   └── pyproject.toml
-├── ALE_v0.2/                         正式 ALE 任务唯一来源
-│   ├── urban_drone_logistics/
-│   ├── cross_sea_drone_logistics/
-│   ├── emergency_blood_transport/
-│   ├── _private/evaluator.py
-│   ├── scripts/stage_release.py
-│   └── tests/
-├── data/                             已审查的空域源数据快照
-└── .github/workflows/                构建和跨平台 smoke CI
-```
-
-开发期数据生成器、旧自动规划代码、CMake/JPS 源码、旧说明和评审记录均保存在本地
-且被 Git 忽略的 `legacy/` 目录。它们不会进入 Git、wheel 或 ALE 上传包。
-
-## 2. 正式任务与上传模型
-
-`ALE_v0.2` 是最终任务的唯一来源，不是只用于开发工具的目录。Git 仓库将三个任务
-放在一起是为了统一维护；ALE 上传时，它们是三个独立的任务 ID，每个任务只有一个
-公开 `base` variant：
-
-| 任务 ID | Base 场景 |
+| 任务 | 场景 |
 |---|---|
-| `transport_safety/urban_drone_logistics` | 香港九龙高密度城市物流 |
-| `transport_safety/cross_sea_drone_logistics` | 香港南部跨海物流 |
-| `transport_safety/emergency_blood_transport` | 港岛紧急血液运输 |
+| `urban_drone_logistics` | 香港九龙高密度城市物流 |
+| `cross_sea_drone_logistics` | 香港南部跨海物流 |
+| `emergency_blood_transport` | 港岛紧急血液运输 |
 
-每个任务源目录都有正式的 `task_card.json`、`main.py`、`input/` 和隐藏
-`reference/`。发布脚本会把统一源码转换成三个互相独立、可单独上传的目录和 ZIP，
-符合 ALE 当前的[任务包规范](https://agents-last-exam.org/docs/ale/pages/add-task.html)
-和[数据分阶段注入规范](https://agents-last-exam.org/docs/ale/pages/tasks.html)。
+> 本项目仅用于基准评测和模拟，不是真实飞行许可、调度服务或航空安全运行系统。
 
-不要再使用“`ALE_v0.1/input` + 手动加入新工具”的组合。v0.1 是历史版本，数据、
-输出合同和打包方式均已过期。
+## 功能
 
-## 3. 支持平台与 wheel
+- 从本地场景目录加载确定性的任务 GIS。
+- 展示地形、3D 建筑、限制空域、人口密度、天气和应急点图层。
+- 查询任务范围内任意位置的结构化环境信息。
+- 使用随任务提供的香港地政总署底图离线工作。
+- 分别绘制、拖动和编辑 A、B、C 三条候选航线。
+- 设置航点 AGL 高度和速度，并从 DEM 取得 MSL 高度。
+- 使用 `[经度, 纬度]` 坐标导出标准 GeoJSON。
+- 校验公开航线格式和六文件交付合同。
+- 支持 Windows x64、Ubuntu x64、Intel Mac 和 Apple Silicon Mac。
 
-最终工具是纯 Python 通用 wheel：
+## 下载文件
 
-```text
-ale_aam_maptool-1.0.0-py3-none-any.whl
-```
+打开仓库的 **Actions** 页面，进入成功的 **ALE-AAM package** 工作流，可以下载：
 
-支持 CPython 3.10–3.13、Windows x64、Ubuntu x64、macOS Intel 和 macOS
-Apple Silicon。普通用户不需要 CMake、C++ 编译器、Homebrew、apt 或 MSVC。
-构建完全离线 wheelhouse 时，Rasterio、NumPy 等第三方依赖仍需准备相应平台的
-预编译 wheel。
+| Artifact | 用途 |
+|---|---|
+| `ale-aam-maptool-1.0.0-universal-wheel` | 适用于全部支持平台、CPython 3.10–3.13 的地图工具 |
+| `ale-aam-ubuntu-py312-wheelhouse` | ALE Ubuntu/Python 3.12 的完整离线安装包 |
+| `ale-aam-urban-drone-logistics-base` | 城市物流任务上传包 |
+| `ale-aam-cross-sea-drone-logistics-base` | 跨海物流任务上传包 |
+| `ale-aam-emergency-blood-transport-base` | 紧急运血任务上传包 |
 
-GitHub Actions 生成两个关键 artifact：
+三个任务 artifact 都只包含一个任务，可以分别上传。提交前不要把三个任务 ZIP 合并。
 
-- `ale-aam-maptool-1.0.0-universal-wheel`：Windows、Ubuntu、Intel Mac 和
-  Apple Silicon Mac 共用。
-- `ale-aam-ubuntu-py312-wheelhouse`：正式 ALE Ubuntu/Python 3.12 离线安装包，
-  包含工具及全部依赖。
-- `ale-aam-urban-drone-logistics-base`：仅城市物流任务的上传 ZIP。
-- `ale-aam-cross-sea-drone-logistics-base`：仅跨海物流任务的上传 ZIP。
-- `ale-aam-emergency-blood-transport-base`：仅紧急运血任务的上传 ZIP。
+## 安装地图工具
 
-在 GitHub 仓库的 **Actions** 页面等待 `ALE-AAM final package` 工作流成功后下载。
+地图工具支持 CPython 3.10、3.11、3.12 和 3.13。安装脚本会创建项目内 `.venv`，
+不需要管理员权限。
 
-## 4. 安装
+### 联网安装依赖
 
-普通安装时，把通用 wheel 放到 `ale_aam_maptool/dist/`。完全离线安装时，把工具
-和所有依赖 wheel 放到 `ale_aam_maptool/wheelhouse/`。
+下载并解压 `ale-aam-maptool-1.0.0-universal-wheel`，把 wheel 放入
+`ale_aam_maptool/dist/`。
 
 Windows PowerShell：
 
@@ -103,79 +65,56 @@ Ubuntu 或 macOS：
 ```bash
 cd ale_aam_maptool
 sh install.sh
-sh run.sh doctor --json
+./run.sh doctor --json
 ```
 
-安装脚本会在项目内创建 `.venv/`。`doctor` 应包含：
+### 完全离线安装
 
-```json
-{
-  "ok": true,
-  "version": "1.0.0",
-  "capabilities": {
-    "inspect_environment": true,
-    "manual_route_editing": true,
-    "geojson_export": true,
-    "automatic_planning": false
-  }
-}
-```
+把地图工具及所有依赖 wheel 放入 `ale_aam_maptool/wheelhouse/`，然后运行相同的安装
+脚本。ALE Ubuntu artifact 已经包含 Python 3.12 所需的完整 wheelhouse。
 
-## 5. 启动离线 Web UI
+健康检查成功时会输出包含 `"ok": true` 的 JSON。
+
+## 快速开始
+
+仓库内提供了一个小型、确定性的示例场景。
 
 Windows：
 
 ```powershell
-.\run.cmd serve --scenario ..\ALE_v0.2\urban_drone_logistics\input\gis --host 127.0.0.1 --port 8000
+cd ale_aam_maptool
+.\run.cmd inspect --scenario .\sample_scenario --json
+.\run.cmd serve --scenario .\sample_scenario --host 127.0.0.1 --port 8000
 ```
 
-Ubuntu/macOS：
+Ubuntu 或 macOS：
 
 ```bash
-./run.sh serve --scenario ../ALE_v0.2/urban_drone_logistics/input/gis --host 127.0.0.1 --port 8000
+cd ale_aam_maptool
+./run.sh inspect --scenario ./sample_scenario --json
+./run.sh serve --scenario ./sample_scenario --host 127.0.0.1 --port 8000
 ```
 
-打开 `http://127.0.0.1:8000/`。服务启动时只绑定命令中指定的场景，网页不能读取
-服务器上的任意路径。
+在浏览器打开 `http://127.0.0.1:8000/`。处理正式任务时，把 `sample_scenario` 换成
+任务提供的 `input/gis` 目录。
 
-### 人工航线工作流
+服务启动时只绑定指定场景，网页请求不能选择服务器上的任意目录。
 
-1. 选择场景自带的香港地政总署离线底图。
-2. 按需显示建筑、空域、天气、人口、地形和应急点图层。
-3. 使用“查看”模式点击地图，读取该位置的结构化环境信息。
-4. 在航线区选择 A、B 或 C。三条路线在当前页面中分别保存独立草稿。
-5. 切换到“画航点”，点击地图添加中间航点；拖动航点调整位置，并填写 AGL 高度
-   和速度。
-6. 导出当前候选路线，文件名分别为 `route_a.geojson`、`route_b.geojson` 或
-   `route_c.geojson`。
-7. 依次完成另外两条路线，再按任务合同制作 `route_final.geojson`、风险 CSV 和
-   应急响应方案。
+## 网页操作流程
 
-黄色虚线框是 `task.json.planning_extent`。结构化查询和航点必须位于框内。离线
-底图额外扩展了 20% 作为视觉参考，框外像素不是规划或评分数据。所有机器接口统一
-使用 `[经度, 纬度]`，即 `[longitude, latitude]`。
+1. 选择随场景提供的离线底图。
+2. 按需显示环境图层。
+3. 使用“查看”模式点击地图，读取地形、天气、人口、建筑、空域和应急点信息。
+4. 选择候选路线 A、B 或 C；当前浏览器会分别保存三条路线的草稿。
+5. 选择“画航点”，点击地图添加中间航点，拖动标记调整路线。
+6. 编辑每个航点的 AGL 高度和速度。
+7. 分别导出 `route_a.geojson`、`route_b.geojson` 或 `route_c.geojson`。
+8. 按任务说明完成风险评估、最终路线和应急方案。
 
-## 6. 可选在线底图与密钥保密
+黄色虚线框是任务的有效分析范围。底图可以在框外提供额外的视觉参考，但结构化
+查询和航点必须位于框内。
 
-任务自带的香港 MBTiles 不需要密钥，断网也可工作。天地图和 Mapbox 仅作为可选的
-服务端代理底图。
-
-将 `.env.example` 复制为 `.env` 后在本机填写：
-
-```text
-ALE_AAM_BASEMAP=auto
-ALE_AAM_TIANDITU_TOKEN=...
-ALE_AAM_MAPBOX_TOKEN=...
-ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
-```
-
-禁止把 `.env` 提交到 Git、把密钥写入 JavaScript、把密钥放入 ALE 上传包，或通过
-`/v1/basemaps` 返回密钥。Git 已忽略 `.env` 和相关 secret 文件。正式 ALE 执行必须
-使用随任务交付的离线底图，不能依赖在线服务。
-
-## 7. 最终 CLI 与 HTTP 合同
-
-CLI 只保留：
+## 命令行接口
 
 ```text
 doctor --json
@@ -186,35 +125,49 @@ basemap verify --pack FILE.mbtiles
 serve --scenario DIR --host 127.0.0.1 --port 8000
 ```
 
-最终版没有 `plan`、`plan-all` 或规划栅格命令。
+示例：
 
-HTTP API：
+```bash
+ale-aam-maptool doctor --json
+ale-aam-maptool inspect --scenario input/gis --json
+ale-aam-maptool validate --scenario input/gis --output output
+ale-aam-maptool basemap inspect --scenario input/gis
+ale-aam-maptool serve --scenario input/gis --host 127.0.0.1 --port 8000
+```
+
+机器可读命令成功时向 stdout 输出 JSON，诊断和错误信息写入 stderr。
+
+## 本地 HTTP API
 
 | 方法 | 接口 | 用途 |
 |---|---|---|
-| GET | `/v1/health` | 版本和服务健康状态 |
-| GET | `/v1/scenario` | 当前绑定场景及边界 |
+| GET | `/v1/health` | 服务健康状态和软件版本 |
+| GET | `/v1/scenario` | 当前场景、任务范围、飞机和约束 |
 | GET | `/v1/layers` | 图层清单 |
 | GET | `/v1/layers/{id}` | 矢量 GeoJSON |
 | GET | `/v1/layers/{id}/preview` | 确定性栅格预览 |
 | GET | `/v1/environment?lon=&lat=` | 查询指定位置环境 |
-| GET | `/v1/basemaps` | 不泄漏密钥的底图清单 |
-| GET | `/v1/basemaps/{id}/{z}/{x}/{y}.png` | 校验后的瓦片代理 |
+| GET | `/v1/basemaps` | 可用底图清单 |
+| GET | `/v1/basemaps/{id}/{z}/{x}/{y}.png` | 经过校验的底图瓦片 |
 | POST | `/v1/validate` | 校验单条 GeoJSON Feature |
 
-`/v1/plan`、`/v1/plan-all` 和 `/v1/preview` 均不存在。
+## 场景内容
 
-## 8. 场景数据与输出合同
+每个任务 input 包含：
 
-每个正式 input 包括：
+- `task_prompt.md` 和 `routing_guidelines.md`；
+- `tool_usage.md` 和 `output_contract.json`；
+- 风险评估量表和应急规划手册；
+- 记录数据来源、CRS、获取日期、转换步骤和 SHA-256 的 `source_manifest.json`；
+- 描述任务、飞机、约束、图层和路线目标的 `gis/task.json`；
+- 5 m 地形、建筑高度、限制空域、人口、天气、应急点和离线底图。
 
-- `task_prompt.md`、`routing_guidelines.md`、`tool_usage.md`；
-- `output_contract.json`、风险量表和应急规划手册；
-- 记录来源和 SHA-256 的 `source_manifest.json`；
-- `gis/task.json`、5 m DTM、3D 建筑、RFZ、人口密度、天气网格、应急点，以及
-  限定范围的香港地政总署 MBTiles。
+GeoJSON 和全部机器接口统一使用 `[经度, 纬度]`。航点高度同时包含
+`altitude_m_agl` 和 `altitude_m_msl`。
 
-agent 必须交付六个文件：
+## 任务交付文件
+
+ALE 提交必须正好包含六个文件：
 
 ```text
 route_a.geojson
@@ -225,78 +178,67 @@ risk_assessment.csv
 emergency_response_plan.md
 ```
 
-每条路线至少有五个 `[经度, 纬度]` 坐标，起终点必须与任务一致，所有坐标必须在
-`planning_extent` 内，每个航点都要提供 `altitude_m_agl`、`altitude_m_msl` 和
-`speed_ms`。`validate` 只检查公开格式和显式硬约束，不会生成、修复、评分或选择路线。
+每条候选路线必须：
 
-## 9. 构建并验证最终 wheel
+- 是带有 `LineString` 几何的 GeoJSON `Feature`；
+- 至少包含五个坐标；
+- 从任务起点开始并在任务终点结束；
+- 位于声明的任务范围内；
+- 带有与坐标一一对应的 AGL 高度、MSL 高度和速度记录；
+- 满足高度、空域、建筑净空、速度和能耗约束；
+- 对应候选路线 A、B 或 C 指定的任务目标。
+
+风险 CSV 对每条候选路线包含六个风险维度和一个总分行，共 21 行数据。应急方案必须
+遵循场景手册并覆盖三级故障。
+
+提交前执行公开校验：
 
 ```bash
-python -m pip install build
-python -m build --wheel --outdir dist ale_aam_maptool
-python -m pip install "ale_aam_maptool[test]"
-python -m pytest ale_aam_maptool/tests ALE_v0.2/tests
+ale-aam-maptool validate --scenario input/gis --output output
+```
+
+## 底图与密钥
+
+随任务提供的香港 MBTiles 不需要网络或 API 密钥。需要可选在线底图时，把
+`.env.example` 复制为 `.env` 并在本地配置：
+
+```text
+ALE_AAM_BASEMAP=auto
+ALE_AAM_TIANDITU_TOKEN=...
+ALE_AAM_MAPBOX_TOKEN=...
+ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
+```
+
+`.env` 只能保存在本地。不得提交密钥、把密钥写入 JavaScript、放入任务包或通过 API
+响应暴露。ALE 执行应使用随任务交付的离线底图。
+
+## 验证
+
+在仓库根目录执行：
+
+```bash
+python -m pip install "./ale_aam_maptool[test]"
+python -m pytest ale_aam_maptool/tests
 node --check ale_aam_maptool/ale_aam_maptool/web/app.js
 ```
 
-最终 wheel 文件名必须以 `py3-none-any.whl` 结尾。包含 `.so`、`.pyd`、`.dylib`、
-JPS 模块或规划接口的 wheel 不是最终发布版。
+GitHub Actions 还会在 Windows、Ubuntu、Intel macOS、Apple Silicon macOS 以及所有
+支持的 Python 版本上安装测试 wheel。
 
-## 10. 生成三个独立 ALE 上传包
+## 数据与许可
 
-先把 GitHub Actions 生成的 `ale-aam-ubuntu-py312-wheelhouse` 解压到本地
-`wheelhouse/`，再运行：
+每个任务的 `source_manifest.json` 记录数据来源和校验值。离线底图署名为“Map from
+Lands Department, HKSAR Government”，其使用受 DATA.GOV.HK 条款约束。项目许可
+和第三方声明见 `LICENSE` 与 `ale_aam_maptool/THIRD_PARTY_NOTICES.md`。
 
-```bash
-python ALE_v0.2/scripts/stage_release.py \
-  --wheelhouse wheelhouse \
-  --out ALE_v0.2/dist/ale-aam-final
-```
+在授权的提交流程之外分发任务包前，应确认相关源数据的再分发条款。
 
-将得到三个独立压缩包：
+## 常见问题
 
-```text
-ale-aam-urban_drone_logistics-base.zip
-ale-aam-cross_sea_drone_logistics-base.zip
-ale-aam-emergency_blood_transport-base.zip
-```
-
-每个 ZIP 只含一个任务：
-
-```text
-tasks/transport_safety/_private/evaluator.py
-tasks/transport_safety/<task>/main.py
-tasks/transport_safety/<task>/task_card.json
-task_data/transport_safety/<task>/base/input/
-task_data/transport_safety/<task>/base/software/wheelhouse/
-task_data/transport_safety/<task>/base/reference/
-release_manifest.json
-```
-
-ALE 在 agent 开始前注入 `input/` 和 `software/`，只能在 agent 完成后注入
-`reference/`。禁止把 `reference` 放进 `input`，也不能把私有评分公式放到 agent
-可见材料中。
-
-通过 `--task <任务名>` 可以只生成一个任务。输出目录必须不存在，避免旧发布文件与
-新文件静默混合。
-
-## 11. 数据、许可与发布阻塞项
-
-每个 `input/source_manifest.json` 都记录了数据 URL、获取日期、CRS、转换步骤和
-SHA-256。离线地图署名为“Map from Lands Department, HKSAR Government”，使用和
-再分发受 DATA.GOV.HK 条款约束。Leaflet 的 BSD-2-Clause 许可随 Web 资源交付；
-项目许可和第三方声明见 `LICENSE` 与 `THIRD_PARTY_NOTICES.md`。
-
-2026-07-24 eSUA/RFZ 快照已固定哈希并裁剪到各任务，但其再分发条款仍是正式发布的
-阻塞项。即使 GitHub 仓库为私有，也应在对外上传任务前确认许可。
-
-## 12. 常见问题
-
-- **没有底图：**选择任务自带的香港地政总署离线底图。大陆网络可能无法访问可选
+- **没有底图：**选择随任务提供的香港地政总署离线底图。部分网络可能无法访问可选
   在线服务。
-- **某个位置不能查询或拖入航点：**该位置在黄色 `planning_extent` 外，只有视觉
-  底图，没有任务结构化数据。
-- **导出提示缺少 MSL 高度：**航点没有有效 DEM 采样；把航点移回任务范围后重试。
-- **`validate` 提示缺文件：**它校验完整六文件输出目录，不只校验当前导出的路线。
-- **找不到 `plan` 命令：**这是最终版的预期行为，自动规划已禁用，并非安装失败。
-- **wheel 不兼容：**下载 `1.0.0` 通用 wheel，不要再使用旧的 `0.3.x` JPS 平台 wheel。
+- **某个位置不能查询或添加航点：**把该位置移入黄色任务范围框。
+- **GeoJSON 导出提示缺少 MSL 高度：**该航点没有有效地形采样；移回任务范围后重试。
+- **校验提示缺少文件：**`validate` 检查完整的六文件输出目录。
+- **离线安装失败：**确认 `wheelhouse/` 中同时存在地图工具 wheel 和全部平台兼容的
+  依赖 wheel。

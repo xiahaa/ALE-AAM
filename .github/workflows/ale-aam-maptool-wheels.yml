@@ -1,4 +1,4 @@
-name: ALE-AAM final package
+name: ALE-AAM package
 on:
   workflow_dispatch:
   push:

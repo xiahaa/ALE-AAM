@@ -1,102 +1,64 @@
-# ALE-AAM 1.0.0
+# ALE-AAM
 
-English documentation | [中文说明](README.zh-CN.md)
+English | [中文](README.zh-CN.md)
 
-ALE-AAM is the final offline GIS inspection and manual route-editing tool for
-three Hong Kong low-altitude logistics tasks in Agents' Last Exam (ALE). It
-loads the delivered scenario, presents structured environment layers, lets a
-user manually draw and edit candidate routes A/B/C, exports GeoJSON, and checks
-the public output contract.
+ALE-AAM is a cross-platform, offline-first GIS toolkit for the Hong Kong
+low-altitude logistics tasks contributed to [Agents' Last Exam
+(ALE)](https://agents-last-exam.org/). It helps users and agents load a task
+scenario, inspect the operating environment, draw and edit candidate routes,
+export GeoJSON, and validate the required deliverables.
 
-Automatic route planning is intentionally disabled in the final release. There
-is no `plan` or `plan-all` CLI command, no `/v1/plan` HTTP endpoint, no public
-Python planning API, and no native JPS extension in the wheel. This preserves
-the benchmark's reasoning difficulty: the agent must interpret the supplied
-GIS and constraints and construct its own candidates.
+The repository contains the map tool and three independently packaged ALE task
+variants:
 
-This repository is for benchmark simulation and evaluation only. It is not a
-real-flight authorization, dispatch system, or aviation-safety system.
-
-## 1. Final repository contents
-
-```text
-ALE-AAM/
-├── README.md / README.zh-CN.md       Final English and Chinese manuals
-├── ale_aam_maptool/                  Cross-platform public tool
-│   ├── ale_aam_maptool/              Python package and offline Web UI
-│   ├── sample_scenario/              Deterministic smoke-test scenario
-│   ├── scripts/                      Release smoke tests only
-│   ├── tests/                        Final capability/API tests
-│   ├── install.ps1 / install.sh
-│   ├── run.cmd / run.sh
-│   └── pyproject.toml
-├── ALE_v0.2/                         Authoritative final ALE task sources
-│   ├── urban_drone_logistics/
-│   ├── cross_sea_drone_logistics/
-│   ├── emergency_blood_transport/
-│   ├── _private/evaluator.py
-│   ├── scripts/stage_release.py
-│   └── tests/
-├── data/                             Reviewed source airspace snapshot
-└── .github/workflows/                Build and cross-platform smoke CI
-```
-
-Development-only generators, obsolete planning code, CMake/JPS sources, old
-manuals, and review notes live locally under ignored `legacy/`. They are not
-part of Git, wheels, or ALE upload archives.
-
-## 2. Task identity and upload model
-
-`ALE_v0.2` is the source of truth for the final tasks. It is not a tool-only
-development directory. The repository groups the three tasks for maintenance,
-but they are three independent ALE task IDs, each with one public `base`
-variant:
-
-| Task ID | Base scenario |
+| Task | Scenario |
 |---|---|
-| `transport_safety/urban_drone_logistics` | Dense Kowloon urban logistics |
-| `transport_safety/cross_sea_drone_logistics` | Southern Hong Kong cross-sea logistics |
-| `transport_safety/emergency_blood_transport` | Hong Kong Island emergency blood transport |
+| `urban_drone_logistics` | Dense urban logistics in Kowloon |
+| `cross_sea_drone_logistics` | Cross-sea logistics in southern Hong Kong |
+| `emergency_blood_transport` | Time-critical blood transport on Hong Kong Island |
 
-Each source directory contains the formal `task_card.json`, `main.py`, `input/`,
-and hidden `reference/`. The release script converts that shared source tree
-into three separate, self-contained upload directories and ZIP files. This
-matches ALE's current [task package](https://agents-last-exam.org/docs/ale/pages/add-task.html)
-and [data staging](https://agents-last-exam.org/docs/ale/pages/tasks.html) model.
+> This project is intended for benchmark evaluation and simulation. It is not
+> a flight authorization, dispatch service, or operational aviation-safety
+> system.
 
-Do not combine the final tool with `ALE_v0.1/input`. v0.1 is historical and has
-older data, contracts, and packaging assumptions.
+## Features
 
-## 3. Supported systems and wheel
+- Load deterministic task GIS from a local scenario directory.
+- Display terrain, 3D buildings, restricted airspace, population density,
+  weather, and emergency-site layers.
+- Query structured environment values at any point within the task extent.
+- Work offline with the bundled Hong Kong Lands Department basemap.
+- Draw, drag, and edit independent route candidates A, B, and C.
+- Set waypoint AGL altitude and speed, with MSL altitude sampled from the DEM.
+- Export standards-compliant GeoJSON using `[longitude, latitude]` coordinates.
+- Validate the public route and six-file submission contract.
+- Run on Windows x64, Ubuntu x64, macOS Intel, and Apple Silicon.
 
-The final wheel is pure Python and universal:
+## Downloadable packages
 
-```text
-ale_aam_maptool-1.0.0-py3-none-any.whl
-```
+Open the repository's **Actions** page and select a successful **ALE-AAM
+package** workflow run. The workflow publishes these artifacts:
 
-It supports CPython 3.10–3.13 on Windows x64, Ubuntu x64, macOS Intel, and macOS
-Apple Silicon. Users do not need CMake, a C++ compiler, Homebrew, apt, or MSVC.
-Platform-specific wheels are still needed for third-party dependencies such as
-Rasterio and NumPy when building a completely offline wheelhouse.
+| Artifact | Use |
+|---|---|
+| `ale-aam-maptool-1.0.0-universal-wheel` | Map tool for CPython 3.10–3.13 on all supported platforms |
+| `ale-aam-ubuntu-py312-wheelhouse` | Complete offline installation set for the ALE Ubuntu/Python 3.12 environment |
+| `ale-aam-urban-drone-logistics-base` | ALE upload package for the urban logistics task |
+| `ale-aam-cross-sea-drone-logistics-base` | ALE upload package for the cross-sea task |
+| `ale-aam-emergency-blood-transport-base` | ALE upload package for the blood-transport task |
 
-GitHub Actions publishes:
+Each task artifact contains one task variant and can be uploaded independently.
+Do not combine the three task ZIP files before submission.
 
-- `ale-aam-maptool-1.0.0-universal-wheel` — installable on all supported systems.
-- `ale-aam-ubuntu-py312-wheelhouse` — the tool plus Linux/Python 3.12 dependency
-  wheels for offline ALE staging.
-- `ale-aam-urban-drone-logistics-base` — upload ZIP for the urban task only.
-- `ale-aam-cross-sea-drone-logistics-base` — upload ZIP for the cross-sea task only.
-- `ale-aam-emergency-blood-transport-base` — upload ZIP for the blood task only.
+## Install the map tool
 
-Download artifacts from the repository's **Actions** page after the `ALE-AAM
-final package` workflow succeeds.
+The map tool supports CPython 3.10, 3.11, 3.12, and 3.13. The supplied scripts
+create a project-local `.venv` and do not require administrator privileges.
 
-## 4. Installation
+### Online dependency installation
 
-Place the universal tool wheel under `ale_aam_maptool/dist/`. For a fully
-offline installation, place the tool and every dependency wheel under
-`ale_aam_maptool/wheelhouse/`.
+Download and extract `ale-aam-maptool-1.0.0-universal-wheel`, then place the
+wheel in `ale_aam_maptool/dist/`.
 
 Windows PowerShell:
 
@@ -111,82 +73,64 @@ Ubuntu or macOS:
 ```bash
 cd ale_aam_maptool
 sh install.sh
-sh run.sh doctor --json
+./run.sh doctor --json
 ```
 
-The scripts create a project-local `.venv/`. `doctor` must report:
+### Fully offline installation
 
-```json
-{
-  "ok": true,
-  "version": "1.0.0",
-  "capabilities": {
-    "inspect_environment": true,
-    "manual_route_editing": true,
-    "geojson_export": true,
-    "automatic_planning": false
-  }
-}
-```
+Place the map-tool wheel and all dependency wheels in
+`ale_aam_maptool/wheelhouse/`, then run the same installation script. The ALE
+Ubuntu package already provides the complete Python 3.12 wheelhouse.
 
-## 5. Start the offline Web UI
+A successful health check prints JSON containing `"ok": true`.
+
+## Quick start
+
+The repository includes a small deterministic example scenario.
 
 Windows:
 
 ```powershell
-.\run.cmd serve --scenario ..\ALE_v0.2\urban_drone_logistics\input\gis --host 127.0.0.1 --port 8000
+cd ale_aam_maptool
+.\run.cmd inspect --scenario .\sample_scenario --json
+.\run.cmd serve --scenario .\sample_scenario --host 127.0.0.1 --port 8000
 ```
 
-Ubuntu/macOS:
+Ubuntu or macOS:
 
 ```bash
-./run.sh serve --scenario ../ALE_v0.2/urban_drone_logistics/input/gis --host 127.0.0.1 --port 8000
+cd ale_aam_maptool
+./run.sh inspect --scenario ./sample_scenario --json
+./run.sh serve --scenario ./sample_scenario --host 127.0.0.1 --port 8000
 ```
 
-Open `http://127.0.0.1:8000/`. The server is bound to the scenario supplied at
-startup; the browser cannot request arbitrary server filesystem paths.
+Open `http://127.0.0.1:8000/` in a browser. Replace `sample_scenario` with the
+`input/gis` directory supplied with a task when working on an ALE case.
 
-### Manual workflow
+The server is bound to the scenario selected at startup. Browser requests
+cannot select arbitrary directories on the host machine.
 
-1. Select the scenario-local Hong Kong Lands Department offline basemap.
-2. Toggle buildings, airspace, weather, population, terrain, and emergency sites.
-3. Use **View** mode to inspect a point's structured environment values.
-4. In the route section choose A, B, or C. Each candidate has an independent
-   in-page draft.
-5. Select **Draw waypoints**, click to add intermediate points, drag points to
-   adjust them, and edit AGL altitude and speed.
-6. Export the current candidate. The filenames are `route_a.geojson`,
-   `route_b.geojson`, or `route_c.geojson`.
-7. Choose the other candidate IDs and repeat. Create `route_final.geojson`, the
-   risk CSV, and the emergency plan as required by the task contract.
+## Web workflow
 
-The yellow dashed rectangle is `task.json.planning_extent`. Structured queries
-and route waypoints are allowed only inside it. The offline cartographic tiles
-extend by 20% for visual context; pixels outside the rectangle are never
-planning or scoring data. All machine coordinates are `[longitude, latitude]`.
+1. Select the bundled offline basemap.
+2. Toggle the environment layers needed for the current analysis.
+3. Use **View** mode and click the map to inspect terrain, weather, population,
+   building, airspace, and emergency-site information.
+4. Select candidate A, B, or C. Each candidate maintains an independent draft
+   in the current browser session.
+5. Select **Draw waypoints**, click the map to add intermediate waypoints, and
+   drag markers to refine the route.
+6. Edit AGL altitude and speed for each waypoint.
+7. Export the candidate as `route_a.geojson`, `route_b.geojson`, or
+   `route_c.geojson`.
+8. Complete the remaining risk assessment, selected route, and emergency plan
+   required by the task instructions.
 
-## 6. Optional online basemaps and secret handling
+The yellow dashed rectangle is the task's valid analysis extent. The basemap
+may show additional cartographic context outside this rectangle, but structured
+task queries and route waypoints must remain inside it.
 
-The delivered Hong Kong MBTiles require no credential and work without network
-access. Optional Tianditu and Mapbox layers are server-side proxies.
-
-Copy `.env.example` to `.env` and set values locally:
-
-```text
-ALE_AAM_BASEMAP=auto
-ALE_AAM_TIANDITU_TOKEN=...
-ALE_AAM_MAPBOX_TOKEN=...
-ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
-```
-
-Never commit `.env`, paste credentials into JavaScript, include them in an ALE
-archive, or expose them through `/v1/basemaps`. `.env` and secret variants are
-ignored by Git. Formal ALE runs must use the delivered offline basemap and must
-not depend on these services.
-
-## 7. Final CLI and HTTP contracts
-
-CLI commands:
+## Command-line interface
 
 ```text
 doctor --json
@@ -197,35 +141,53 @@ basemap verify --pack FILE.mbtiles
 serve --scenario DIR --host 127.0.0.1 --port 8000
 ```
 
-There is deliberately no `plan`, `plan-all`, or planning-grid command.
+Examples:
 
-Versioned HTTP endpoints:
+```bash
+ale-aam-maptool doctor --json
+ale-aam-maptool inspect --scenario input/gis --json
+ale-aam-maptool validate --scenario input/gis --output output
+ale-aam-maptool basemap inspect --scenario input/gis
+ale-aam-maptool serve --scenario input/gis --host 127.0.0.1 --port 8000
+```
+
+Successful machine-readable commands write JSON to stdout. Diagnostic messages
+and errors are written to stderr.
+
+## Local HTTP API
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/v1/health` | Version and server health |
-| GET | `/v1/scenario` | Bound scenario metadata and bounds |
-| GET | `/v1/layers` | Layer catalogue |
-| GET | `/v1/layers/{id}` | Vector GeoJSON |
+| GET | `/v1/health` | Service health and package version |
+| GET | `/v1/scenario` | Bound scenario, task extent, aircraft, and constraints |
+| GET | `/v1/layers` | Available layer catalogue |
+| GET | `/v1/layers/{id}` | Vector layer as GeoJSON |
 | GET | `/v1/layers/{id}/preview` | Deterministic raster preview |
 | GET | `/v1/environment?lon=&lat=` | Structured point query |
-| GET | `/v1/basemaps` | Credential-free provider catalogue |
-| GET | `/v1/basemaps/{id}/{z}/{x}/{y}.png` | Validated tile proxy |
+| GET | `/v1/basemaps` | Available basemap catalogue |
+| GET | `/v1/basemaps/{id}/{z}/{x}/{y}.png` | Validated basemap tile |
 | POST | `/v1/validate` | Validate one submitted GeoJSON feature |
 
-`/v1/plan`, `/v1/plan-all`, and `/v1/preview` are absent.
+## Scenario contents
 
-## 8. Scenario data and output contract
+Each task input includes:
 
-Each final input contains:
+- `task_prompt.md` and `routing_guidelines.md`;
+- `tool_usage.md` and `output_contract.json`;
+- a risk-assessment rubric and emergency-planning manual;
+- `source_manifest.json` with source, CRS, acquisition date, transformation,
+  and SHA-256 information;
+- `gis/task.json` with the mission, aircraft, constraints, layers, and route
+  profiles;
+- 5 m terrain, building heights, restricted airspace, population, weather,
+  emergency sites, and an offline basemap.
 
-- `task_prompt.md`, `routing_guidelines.md`, `tool_usage.md`;
-- `output_contract.json`, risk rubric, and emergency-planning manual;
-- `source_manifest.json` with provenance and SHA-256 values;
-- `gis/task.json`, 5 m DTM, 3D buildings, RFZ polygons, population density,
-  weather grid, emergency sites, and a bounded LandsD MBTiles pack.
+GeoJSON and all machine interfaces use `[longitude, latitude]`. Waypoint
+altitudes include both `altitude_m_agl` and `altitude_m_msl`.
 
-Agents must produce exactly six artifacts:
+## Required task outputs
+
+An ALE submission must contain exactly these six files:
 
 ```text
 route_a.geojson
@@ -236,86 +198,77 @@ risk_assessment.csv
 emergency_response_plan.md
 ```
 
-Routes must contain at least five `[longitude, latitude]` points, start and end
-at the task endpoints, remain within `planning_extent`, and provide per-waypoint
-`altitude_m_agl`, `altitude_m_msl`, and `speed_ms`. `validate` checks public
-schema and explicit constraints only. It does not plan, score, select, or repair
-a route.
+Each candidate route must:
 
-## 9. Build and verify the final wheel
+- be a GeoJSON `Feature` with `LineString` geometry;
+- contain at least five coordinates;
+- start and end at the task-defined endpoints;
+- remain within the declared task extent;
+- include matching waypoint records with AGL altitude, MSL altitude, and speed;
+- satisfy the task's altitude, airspace, building-clearance, speed, and energy
+  constraints; and
+- represent the objective assigned to candidate A, B, or C.
+
+The risk CSV contains six dimensions plus one total row for each candidate, for
+21 data rows in total. The emergency plan must follow the scenario-specific
+manual and cover all three failure levels.
+
+Run the public validation before submission:
 
 ```bash
-python -m pip install build
-python -m build --wheel --outdir dist ale_aam_maptool
-python -m pip install "ale_aam_maptool[test]"
-python -m pytest ale_aam_maptool/tests ALE_v0.2/tests
+ale-aam-maptool validate --scenario input/gis --output output
+```
+
+## Basemaps and credentials
+
+The bundled Hong Kong MBTiles basemap works without network access or API keys.
+Optional online providers can be configured locally by copying `.env.example`
+to `.env`:
+
+```text
+ALE_AAM_BASEMAP=auto
+ALE_AAM_TIANDITU_TOKEN=...
+ALE_AAM_MAPBOX_TOKEN=...
+ALE_AAM_MAPBOX_STYLE=mapbox/streets-v12
+```
+
+Keep `.env` local. Credentials must not be committed, embedded in JavaScript,
+included in task packages, or exposed in API responses. ALE execution should
+use the bundled offline basemap.
+
+## Verification
+
+From the repository root:
+
+```bash
+python -m pip install "./ale_aam_maptool[test]"
+python -m pytest ale_aam_maptool/tests
 node --check ale_aam_maptool/ale_aam_maptool/web/app.js
 ```
 
-The resulting filename must end in `py3-none-any.whl`. A wheel containing a
-`.so`, `.pyd`, `.dylib`, JPS module, or planning endpoint is not a final release.
+GitHub Actions additionally installs the wheel on Windows, Ubuntu, Intel macOS,
+and Apple Silicon macOS with every supported Python version.
 
-## 10. Build three independent ALE upload packages
+## Data and licensing
 
-First download/extract `ale-aam-ubuntu-py312-wheelhouse` into a local
-`wheelhouse/`, then run:
+Source provenance and checksums are recorded in each task's
+`source_manifest.json`. The offline basemap attribution is “Map from Lands
+Department, HKSAR Government” and its reuse is governed by the DATA.GOV.HK
+Terms and Conditions. Project and third-party notices are provided in
+`LICENSE` and `ale_aam_maptool/THIRD_PARTY_NOTICES.md`.
 
-```bash
-python ALE_v0.2/scripts/stage_release.py \
-  --wheelhouse wheelhouse \
-  --out ALE_v0.2/dist/ale-aam-final
-```
+Confirm the applicable source-data redistribution terms before distributing a
+task package outside the authorized submission workflow.
 
-The command produces:
+## Troubleshooting
 
-```text
-ale-aam-urban_drone_logistics-base.zip
-ale-aam-cross_sea_drone_logistics-base.zip
-ale-aam-emergency_blood_transport-base.zip
-```
-
-Each ZIP contains exactly one task:
-
-```text
-tasks/transport_safety/_private/evaluator.py
-tasks/transport_safety/<task>/main.py
-tasks/transport_safety/<task>/task_card.json
-task_data/transport_safety/<task>/base/input/
-task_data/transport_safety/<task>/base/software/wheelhouse/
-task_data/transport_safety/<task>/base/reference/
-release_manifest.json
-```
-
-The platform stages `input/` and `software/` before the agent run. It must stage
-`reference/` only after the agent has finished. Never move `reference` under
-`input` and never include evaluator formulas in agent-visible materials.
-
-Use `--task <name>` to stage one task only. The output target must not already
-exist; this prevents silently mixing an old package with a new release.
-
-## 11. Data, licensing, and release blocker
-
-The task data records source URL, acquisition date, CRS, conversion procedure,
-and SHA-256 in each `input/source_manifest.json`. The offline map attribution is
-“Map from Lands Department, HKSAR Government” and reuse is subject to the
-DATA.GOV.HK Terms and Conditions. Leaflet's BSD-2-Clause notice is bundled with
-the Web assets; project notices are in `LICENSE` and `THIRD_PARTY_NOTICES.md`.
-
-The 2026-07-24 eSUA/RFZ archive is hash-pinned and clipped into each task. Its
-redistribution terms remain a publication blocker: confirm them before any
-external task upload, even when the GitHub repository is private.
-
-## 12. Troubleshooting
-
-- **Blank basemap:** select the delivered offline LandsD layer. Online providers
-  are optional and may be blocked in mainland networks.
-- **A coordinate cannot be queried or dragged:** it is outside the yellow
-  `planning_extent`; only cartographic context exists there.
-- **Export lacks MSL altitude:** the waypoint has no valid DEM sample. Move it
-  inside the task extent and retry.
-- **`validate` reports missing files:** it validates the full six-file output
-  directory, not only the currently exported route.
-- **No `plan` command:** expected final behavior. Automatic planning is disabled,
-  not an installation failure.
-- **Wheel not found:** download the `1.0.0` universal wheel; do not use old
-  CPython/platform-specific `0.3.x` JPS wheels.
+- **Blank map:** choose the bundled offline Lands Department basemap. Optional
+  online providers may be unavailable on some networks.
+- **A point cannot be queried or used as a waypoint:** move it inside the yellow
+  task-extent rectangle.
+- **GeoJSON export reports a missing MSL altitude:** the waypoint has no valid
+  terrain sample; move it within the task extent and retry.
+- **Validation reports missing files:** `validate` checks the complete six-file
+  output directory.
+- **Wheel installation fails offline:** confirm that `wheelhouse/` contains the
+  map-tool wheel and every platform-compatible dependency wheel.
